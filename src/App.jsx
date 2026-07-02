@@ -1365,7 +1365,7 @@ function ComplianceReport({ f }) {
               ))}
             </div>
 
-          );
+          )
         })}
 
         {/* ── REPORT FOOTER ── */}
