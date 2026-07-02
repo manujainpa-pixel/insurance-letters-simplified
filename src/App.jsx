@@ -1355,7 +1355,7 @@ function ComplianceReport({ f }) {
                            <div style={{ fontSize: 13, fontWeight: 600, color: G900, lineHeight: 1.4, flex: 1 }}>{item.req}</div> 
       <div style={{ fontSize: 10, fontWeight: 700, color: item.pass && !item.warn ? GREEN : item.warn ? AMBER : RED, background: item.pass && !item.warn ? GBGL : item.warn ? ABGL : RBGL, border: `1px solid ${item.pass && !item.warn ? GBDR : item.warn ? ABDR : RBDR}`, borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap", flexShrink: 0 }}>{item.reg}</div> 
     </div> 
-    {/* Detail */} 
+  {/* Detail */} 
     <div style={{ fontSize: 12, color: G600, marginTop: 4, lineHeight: 1.5 }}>{item.detail}</div> 
     {/* Warn */} 
     {item.warn && <div style={{ fontSize: 11, color: AMBER, marginTop: 5, fontWeight: 600, background: ABGL, border: `1px solid ${ABDR}`, borderRadius: 4, padding: "4px 8px" }}>Action: {item.warn}</div>} 
