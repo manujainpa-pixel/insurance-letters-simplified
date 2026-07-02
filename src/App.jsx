@@ -1359,13 +1359,14 @@ function ComplianceReport({ f }) {
                     <div style={{ fontSize: 12, color: G600, marginTop: 4, lineHeight: 1.5 }}>{item.detail}</div>
                     {/* Warn */}
                     {item.warn && <div style={{ fontSize: 11, color: AMBER, marginTop: 5, fontWeight: 600, background: ABGL, border: `1px solid ${ABDR}`, borderRadius: 4, padding: "4px 8px" }}>Action: {item.warn}</div>}
-
+>>>>>>> 381770a54d749418938dcde48229ea2957a26dd3
                   </div>
                 </div>
               ))}
             </div>
 
-       
+          );
+        })}
 
         {/* ── REPORT FOOTER ── */}
         <div style={{ background: G50, borderTop: `1px solid ${G200}`, padding: "12px 20px" }}>
@@ -2353,6 +2354,18 @@ export default function App() {
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px" }}>
 
+        {activeClaim && view === "form" && (
+          <div style={{ background: BBGL, border: `1px solid ${BBDR}`, borderRadius: 8, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ fontSize: 13, color: BLUE, fontFamily: ff }}>
+              ✓ Pre-filled from claim <strong>{activeClaim.claim_number}</strong> · {activeClaim.employee_name} · Review and edit any fields before generating
+            </div>
+            <button onClick={() => setAppMode("agent")} style={{ fontSize: 12, color: BLUE, background: "white", border: `1px solid ${BBDR}`, borderRadius: 5, padding: "4px 10px", cursor: "pointer", fontFamily: ff }}>
+              ← Back to agent
+            </button>
+          </div>
+        )}
+=======
+>>>>>>> 381770a54d749418938dcde48229ea2957a26dd3
         {view === "form" ? (
           <div style={{ background: "white", borderRadius: 10, padding: "28px 32px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
             <InputForm form={form} setForm={setForm} onGenerate={() => setView("letter")} />
