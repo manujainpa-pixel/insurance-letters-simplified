@@ -918,7 +918,7 @@ function ComplianceReport({ f }) {
     groups.push({ title: `${f.letterType === "std" ? "STD Integration" : "PFML Integration"} Disclosure Requirements`, icon: f.letterType === "std" ? "🩹" : "💵", items: addItems });
   }
 
-
+<<<<<<< HEAD
   // ── GROUP 8: Employer Obligations During Leave ────────────────────────────
   if (showDN) {
     const eoItems = [];
@@ -1352,26 +1352,27 @@ function ComplianceReport({ f }) {
                   <div>
                     {/* Req + reg */}
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                           <div style={{ fontSize: 13, fontWeight: 600, color: G900, lineHeight: 1.4, flex: 1 }}>{item.req}</div> 
-      <div style={{ fontSize: 10, fontWeight: 700, color: item.pass && !item.warn ? GREEN : item.warn ? AMBER : RED, background: item.pass && !item.warn ? GBGL : item.warn ? ABGL : RBGL, border: `1px solid ${item.pass && !item.warn ? GBDR : item.warn ? ABDR : RBDR}`, borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap", flexShrink: 0 }}>{item.reg}</div> 
-    </div> 
-  {/* Detail */} 
-    <div style={{ fontSize: 12, color: G600, marginTop: 4, lineHeight: 1.5 }}>{item.detail}</div> 
-    {/* Warn */} 
-    {item.warn && <div style={{ fontSize: 11, color: AMBER, marginTop: 5, fontWeight: 600, background: ABGL, border: `1px solid ${ABDR}`, borderRadius: 4, padding: "4px 8px" }}>Action: {item.warn}</div>} 
-  </div> 
-</div> 
-))} 
-</div> 
-)
-})} 
+                      <div style={{ fontSize: 13, fontWeight: 600, color: G900, lineHeight: 1.4, flex: 1 }}>{item.req}</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: item.pass && !item.warn ? GREEN : item.warn ? AMBER : RED, background: item.pass && !item.warn ? GBGL : item.warn ? ABGL : RBGL, border: `1px solid ${item.pass && !item.warn ? GBDR : item.warn ? ABDR : RBDR}`, borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap", flexShrink: 0 }}>{item.reg}</div>
+                    </div>
+                    {/* Detail */}
+                    <div style={{ fontSize: 12, color: G600, marginTop: 4, lineHeight: 1.5 }}>{item.detail}</div>
+                    {/* Warn */}
+                    {item.warn && <div style={{ fontSize: 11, color: AMBER, marginTop: 5, fontWeight: 600, background: ABGL, border: `1px solid ${ABDR}`, borderRadius: 4, padding: "4px 8px" }}>Action: {item.warn}</div>}
+>>>>>>> 381770a54d749418938dcde48229ea2957a26dd3
+                  </div>
+                </div>
+              ))}
+            </div>
+<<<<<<< HEAD
+          );
+        })}
 
-{/* ── REPORT FOOTER ── */} 
-<div style={{ background: G50, borderTop: `1px solid ${G200}`, padding: "12px 20px" }}> 
-<div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8, marginBottom: 8 }}> 
-<div> 
-<div style={{ fontSize: 11, fontWeight: 700, color: G800, marginBottom: 2 }}>Report metadata</div>
-
+        {/* ── REPORT FOOTER ── */}
+        <div style={{ background: G50, borderTop: `1px solid ${G200}`, padding: "12px 20px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: G800, marginBottom: 2 }}>Report metadata</div>
               <div style={{ fontSize: 11, color: G400 }}>Generated {genTs} · Claim {f.claimNumber} · Letter {f.letterId} · Template {f.templateVersion}</div>
               <div style={{ fontSize: 11, color: G400 }}>Regulatory basis: 29 CFR Part 825 · DOL WH-381/382 · {stateCode === "ME" ? "26 M.R.S. §§ 843–850-R (Maine)" : stateCode === "TN" ? "T.C.A. § 4-21-408 (Tennessee)" : "Federal FMLA only"}</div>
             </div>
@@ -1696,7 +1697,7 @@ function InputForm({ form, setForm, onGenerate }) {
   );
 }
 
-
+<<<<<<< HEAD
 // ─── CSV → FORM MAPPER ────────────────────────────────────────────────────────
 function csvToForm(claim, agentFields = {}) {
   const stateMap = {
@@ -2352,7 +2353,7 @@ export default function App() {
       </div>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px" }}>
-
+<<<<<<< HEAD
         {activeClaim && view === "form" && (
           <div style={{ background: BBGL, border: `1px solid ${BBDR}`, borderRadius: 8, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
             <div style={{ fontSize: 13, color: BLUE, fontFamily: ff }}>
