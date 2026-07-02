@@ -601,7 +601,7 @@ function GeneratedLetter({ f }) {
 function ComplianceReport({ f }) {
 
   const [open, setOpen] = useState(true);
->>>>>>> 381770a54d749418938dcde48229ea2957a26dd3
+
   const scope      = f.noticeScope || "combined";
   const showEN     = scope === "en"  || scope === "combined";
   const showDN     = scope === "dn"  || scope === "combined";
