@@ -1667,7 +1667,7 @@ function csvToForm(claim, agentFields = {}) {
     // med cert
     medCertRequired:       agentFields.medCertRequired || "yes",
     medCertStatus:         agentFields.medCertStatus || "Pending",
-    medCertDueDate,
+    medCertDueDate: medCertDue,
     providerName:          agentFields.providerName || "",
     // requirements
     paidLeaveConcurrent:   agentFields.paidLeaveConcurrent || "yes",
