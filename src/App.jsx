@@ -1366,7 +1366,7 @@ function ComplianceReport({ f }) {
             </div>
 
           );
-        })}
+     
 
         {/* ── REPORT FOOTER ── */}
         <div style={{ background: G50, borderTop: `1px solid ${G200}`, padding: "12px 20px" }}>
