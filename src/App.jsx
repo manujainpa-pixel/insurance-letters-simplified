@@ -602,9 +602,9 @@ function ComplianceReport({ f }) {
 
   const [openGroups, setOpenGroups] = useState({});
   const toggleGroup = (i) => setOpenGroups(p => ({ ...p, [i]: !p[i] }));
-=======
+
   const [open, setOpen] = useState(true);
->>>>>>> 381770a54d749418938dcde48229ea2957a26dd3
+
   const scope      = f.noticeScope || "combined";
   const showEN     = scope === "en"  || scope === "combined";
   const showDN     = scope === "dn"  || scope === "combined";
@@ -1278,7 +1278,7 @@ function ComplianceReport({ f }) {
                         </div>
                       )}
                     </div>
-=======
+
   // ── Scorecard ─────────────────────────────────────────────────────────────
   const allItems = groups.flatMap(g => g.items);
   const passCount = allItems.filter(i => i.pass).length;
@@ -1362,7 +1362,7 @@ function ComplianceReport({ f }) {
                     <div style={{ fontSize: 12, color: G600, marginTop: 4, lineHeight: 1.5 }}>{item.detail}</div>
                     {/* Warn */}
                     {item.warn && <div style={{ fontSize: 11, color: AMBER, marginTop: 5, fontWeight: 600, background: ABGL, border: `1px solid ${ABDR}`, borderRadius: 4, padding: "4px 8px" }}>Action: {item.warn}</div>}
->>>>>>> 381770a54d749418938dcde48229ea2957a26dd3
+
                   </div>
                 </div>
               ))}
@@ -1388,7 +1388,7 @@ function ComplianceReport({ f }) {
           </div>
         </div>
       </div>
-=======
+
           ))}
 
           {/* Footer */}
@@ -1402,7 +1402,7 @@ function ComplianceReport({ f }) {
           </div>
         </div>
       )}
->>>>>>> 381770a54d749418938dcde48229ea2957a26dd3
+
     </div>
   );
 }
@@ -2318,7 +2318,7 @@ export default function App() {
               {activeClaim && <span style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.6)", marginLeft: 10 }}>{activeClaim.claim_number} · {activeClaim.employee_name}</span>}
             </div>
           </div>
-=======
+
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [form, setForm] = useState(defaultForm);
@@ -2336,7 +2336,7 @@ export default function App() {
         <div>
           <div style={{ color: GOLD, fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>Absence Management Platform</div>
           <div style={{ color: "white", fontSize: 15, fontWeight: 700 }}>FMLA EN + DN Letter Generator</div>
->>>>>>> 381770a54d749418938dcde48229ea2957a26dd3
+
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {view === "letter" && (
@@ -2367,8 +2367,8 @@ export default function App() {
             </button>
           </div>
         )}
-=======
->>>>>>> 381770a54d749418938dcde48229ea2957a26dd3
+
+
         {view === "form" ? (
           <div style={{ background: "white", borderRadius: 10, padding: "28px 32px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
             <InputForm form={form} setForm={setForm} onGenerate={() => setView("letter")} />
