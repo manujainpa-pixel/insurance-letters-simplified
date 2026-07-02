@@ -1618,7 +1618,7 @@ function csvToForm(claim, agentFields = {}) {
     : "fmla";
 
   const leaveStart = claim.leave_start || "";
-  const medCertDue = leaveStart
+  const medCertDueDate = leaveStart
     ? fmtDate(addDays(new Date(leaveStart), 15))
     : fmtDate(addDays(today, 15));
 
@@ -1667,7 +1667,7 @@ function csvToForm(claim, agentFields = {}) {
     // med cert
     medCertRequired:       agentFields.medCertRequired || "yes",
     medCertStatus:         agentFields.medCertStatus || "Pending",
-    medCertDueDate: medCertDue,
+    medCertDueDate,
     providerName:          agentFields.providerName || "",
     // requirements
     paidLeaveConcurrent:   agentFields.paidLeaveConcurrent || "yes",
@@ -1832,7 +1832,12 @@ WHEN ALL FIELDS COLLECTED:
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY || "",
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
         body: JSON.stringify({
           model: "claude-sonnet-4-6",
           max_tokens: 1000,
@@ -1841,6 +1846,15 @@ WHEN ALL FIELDS COLLECTED:
         }),
       });
       const data = await res.json();
+
+      // Surface API-level errors (wrong key, quota, etc.)
+      if (!res.ok) {
+        const apiErr = data?.error?.message || `HTTP ${res.status}: ${res.statusText}`;
+        setMessages(prev => [...prev, { role: "assistant", content: `⚠ API error: ${apiErr}` }]);
+        setLoading(false);
+        return;
+      }
+
       const reply = data.content?.[0]?.text || "Something went wrong — please try again.";
 
       // Parse collected fields from response
@@ -1859,8 +1873,17 @@ WHEN ALL FIELDS COLLECTED:
       }
 
       setMessages(prev => [...prev, { role: "assistant", content: reply }]);
-    } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "Connection error — please try again." }]);
+    } catch (err) {
+      console.error("API error:", err);
+      // Try to get actual error from response
+      let errMsg = "Connection error — please try again.";
+      try {
+        const errData = JSON.parse(err.message);
+        errMsg = `API error: ${errData?.error?.message || err.message}`;
+      } catch {
+        errMsg = `Connection error: ${err.message}`;
+      }
+      setMessages(prev => [...prev, { role: "assistant", content: errMsg }]);
     }
     setLoading(false);
   }
