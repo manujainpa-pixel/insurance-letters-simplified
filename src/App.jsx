@@ -599,7 +599,7 @@ function GeneratedLetter({ f }) {
 
 // ─── COMPLIANCE REPORT ────────────────────────────────────────────────────────
 function ComplianceReport({ f }) {
-<<<<<<< HEAD
+
   const [openGroups, setOpenGroups] = useState({});
   const toggleGroup = (i) => setOpenGroups(p => ({ ...p, [i]: !p[i] }));
 =======
@@ -921,7 +921,7 @@ function ComplianceReport({ f }) {
     groups.push({ title: `${f.letterType === "std" ? "STD Integration" : "PFML Integration"} Disclosure Requirements`, icon: f.letterType === "std" ? "🩹" : "💵", items: addItems });
   }
 
-<<<<<<< HEAD
+
   // ── GROUP 8: Employer Obligations During Leave ────────────────────────────
   if (showDN) {
     const eoItems = [];
@@ -1367,7 +1367,7 @@ function ComplianceReport({ f }) {
                 </div>
               ))}
             </div>
-<<<<<<< HEAD
+
           );
         })}
 
@@ -1700,7 +1700,7 @@ function InputForm({ form, setForm, onGenerate }) {
   );
 }
 
-<<<<<<< HEAD
+
 // ─── CSV → FORM MAPPER ────────────────────────────────────────────────────────
 function csvToForm(claim, agentFields = {}) {
   const stateMap = {
@@ -2356,7 +2356,7 @@ export default function App() {
       </div>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px" }}>
-<<<<<<< HEAD
+
         {activeClaim && view === "form" && (
           <div style={{ background: BBGL, border: `1px solid ${BBDR}`, borderRadius: 8, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
             <div style={{ fontSize: 13, color: BLUE, fontFamily: ff }}>
