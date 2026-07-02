@@ -599,8 +599,12 @@ function GeneratedLetter({ f }) {
 
 // ─── COMPLIANCE REPORT ────────────────────────────────────────────────────────
 function ComplianceReport({ f }) {
+<<<<<<< HEAD
   const [openGroups, setOpenGroups] = useState({});
   const toggleGroup = (i) => setOpenGroups(p => ({ ...p, [i]: !p[i] }));
+=======
+  const [open, setOpen] = useState(true);
+>>>>>>> 381770a54d749418938dcde48229ea2957a26dd3
   const scope      = f.noticeScope || "combined";
   const showEN     = scope === "en"  || scope === "combined";
   const showDN     = scope === "dn"  || scope === "combined";
@@ -917,6 +921,7 @@ function ComplianceReport({ f }) {
     groups.push({ title: `${f.letterType === "std" ? "STD Integration" : "PFML Integration"} Disclosure Requirements`, icon: f.letterType === "std" ? "🩹" : "💵", items: addItems });
   }
 
+<<<<<<< HEAD
   // ── GROUP 8: Employer Obligations During Leave ────────────────────────────
   if (showDN) {
     const eoItems = [];
@@ -1273,10 +1278,96 @@ function ComplianceReport({ f }) {
                         </div>
                       )}
                     </div>
+=======
+  // ── Scorecard ─────────────────────────────────────────────────────────────
+  const allItems = groups.flatMap(g => g.items);
+  const passCount = allItems.filter(i => i.pass).length;
+  const warnCount = allItems.filter(i => i.warn).length;
+  const total     = allItems.length;
+  const score     = Math.round((passCount / total) * 100);
+  const scoreColor = score === 100 ? GREEN : score >= 80 ? "#92400E" : RED;
+  const scoreBg    = score === 100 ? GBGL  : score >= 80 ? ABGL      : RBGL;
+
+  return (
+    <div style={{ marginTop: 28, fontFamily: ff }}>
+      {/* Header row */}
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer",
+          background: NAV, borderRadius: open ? "8px 8px 0 0" : 8, padding: "13px 18px", userSelect: "none" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: 16 }}>🛡️</span>
+          <div>
+            <div style={{ color: "white", fontWeight: 700, fontSize: 14 }}>Compliance & DOL Requirements Report</div>
+            <div style={{ color: "#93C5FD", fontSize: 11 }}>
+              {passCount} of {total} requirements satisfied · {warnCount > 0 ? `${warnCount} item${warnCount > 1 ? "s" : ""} need attention` : "No outstanding issues"}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ background: scoreBg, borderRadius: 99, padding: "4px 14px", display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 18, fontWeight: 800, color: scoreColor }}>{score}%</span>
+            <span style={{ fontSize: 11, color: scoreColor, fontWeight: 600 }}>{score === 100 ? "Fully Compliant" : score >= 80 ? "Review Needed" : "Action Required"}</span>
+          </div>
+          <span style={{ color: "white", fontSize: 16 }}>{open ? "▲" : "▼"}</span>
+        </div>
+      </div>
+
+      {open && (
+        <div style={{ border: `1px solid ${G200}`, borderTop: "none", borderRadius: "0 0 8px 8px", overflow: "hidden" }}>
+          {/* Warnins summary */}
+          {warnCount > 0 && (
+            <div style={{ background: ABGL, borderBottom: `1px solid ${ABDR}`, padding: "10px 18px" }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: AMBER, marginBottom: 6 }}>⚠ Items Requiring Attention</div>
+              {allItems.filter(i => i.warn).map((item, i) => (
+                <div key={i} style={{ fontSize: 12, color: AMBER, marginBottom: 4, paddingLeft: 12 }}>
+                  · <strong>{item.reg}</strong> — {item.warn}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Requirement groups */}
+          {groups.map((group, gi) => (
+            <div key={gi} style={{ borderBottom: gi < groups.length - 1 ? `1px solid ${G100}` : "none" }}>
+              {/* Group header */}
+              <div style={{ background: G50, padding: "8px 18px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${G100}` }}>
+                <span style={{ fontSize: 14 }}>{group.icon}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: NAV }}>{group.title}</span>
+                <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 600, color: group.items.every(i => i.pass && !i.warn) ? GREEN : AMBER }}>
+                  {group.items.filter(i => i.pass).length}/{group.items.length} passed
+                </span>
+              </div>
+
+              {/* Items */}
+              {group.items.map((item, ii) => (
+                <div key={ii} style={{ padding: "12px 18px", borderBottom: ii < group.items.length - 1 ? `1px solid ${G100}` : "none", display: "grid", gridTemplateColumns: "24px 1fr", gap: "0 12px" }}>
+                  {/* Status icon */}
+                  <div style={{ paddingTop: 2 }}>
+                    {item.pass && !item.warn
+                      ? <div style={{ width: 20, height: 20, borderRadius: "50%", background: GREEN, display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg></div>
+                      : item.warn
+                        ? <div style={{ width: 20, height: 20, borderRadius: "50%", background: "#F59E0B", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "white", fontWeight: 700 }}>!</div>
+                        : <div style={{ width: 20, height: 20, borderRadius: "50%", background: RED, display: "flex", alignItems: "center", justifyContent: "center" }}><svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 2L8 8M8 2L2 8" stroke="white" strokeWidth="1.8" strokeLinecap="round"/></svg></div>
+                    }
+                  </div>
+                  <div>
+                    {/* Req + reg */}
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: G900, lineHeight: 1.4, flex: 1 }}>{item.req}</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: item.pass && !item.warn ? GREEN : item.warn ? AMBER : RED, background: item.pass && !item.warn ? GBGL : item.warn ? ABGL : RBGL, border: `1px solid ${item.pass && !item.warn ? GBDR : item.warn ? ABDR : RBDR}`, borderRadius: 4, padding: "2px 7px", whiteSpace: "nowrap", flexShrink: 0 }}>{item.reg}</div>
+                    </div>
+                    {/* Detail */}
+                    <div style={{ fontSize: 12, color: G600, marginTop: 4, lineHeight: 1.5 }}>{item.detail}</div>
+                    {/* Warn */}
+                    {item.warn && <div style={{ fontSize: 11, color: AMBER, marginTop: 5, fontWeight: 600, background: ABGL, border: `1px solid ${ABDR}`, borderRadius: 4, padding: "4px 8px" }}>Action: {item.warn}</div>}
+>>>>>>> 381770a54d749418938dcde48229ea2957a26dd3
                   </div>
                 </div>
               ))}
             </div>
+<<<<<<< HEAD
           );
         })}
 
@@ -1297,6 +1388,21 @@ function ComplianceReport({ f }) {
           </div>
         </div>
       </div>
+=======
+          ))}
+
+          {/* Footer */}
+          <div style={{ background: G50, borderTop: `1px solid ${G200}`, padding: "10px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ fontSize: 11, color: G400 }}>
+              Report generated {new Date().toLocaleString()} · Based on 29 CFR Part 825, DOL WH-381/382, and applicable state law
+            </div>
+            <div style={{ fontSize: 11, color: G400, fontStyle: "italic" }}>
+              ⚠ Have employment counsel validate before production use
+            </div>
+          </div>
+        </div>
+      )}
+>>>>>>> 381770a54d749418938dcde48229ea2957a26dd3
     </div>
   );
 }
@@ -1594,6 +1700,7 @@ function InputForm({ form, setForm, onGenerate }) {
   );
 }
 
+<<<<<<< HEAD
 // ─── CSV → FORM MAPPER ────────────────────────────────────────────────────────
 function csvToForm(claim, agentFields = {}) {
   const stateMap = {
@@ -2211,6 +2318,25 @@ export default function App() {
               {activeClaim && <span style={{ fontSize: 12, fontWeight: 400, color: "rgba(255,255,255,0.6)", marginLeft: 10 }}>{activeClaim.claim_number} · {activeClaim.employee_name}</span>}
             </div>
           </div>
+=======
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+export default function App() {
+  const [form, setForm] = useState(defaultForm);
+  const [view, setView] = useState("form");
+
+  const scopeBgColor   = { en: "#0D6B3B", dn: "#7C2D12", combined: NAV };
+  const scopeLabel     = { en: "EN Only", dn: "DN Only", combined: "EN + DN" };
+  const ltypeBgColor   = { fmla: NAV, pfml: "#0D6B3B", std: "#7C2D12" };
+  const ltypeLabel     = { fmla: "Standalone FMLA", pfml: "FMLA + Paid Leave", std: "FMLA + STD" };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#E8EAF0", fontFamily: ff }}>
+      {/* Top bar */}
+      <div style={{ background: NAV, padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+        <div>
+          <div style={{ color: GOLD, fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>Absence Management Platform</div>
+          <div style={{ color: "white", fontSize: 15, fontWeight: 700 }}>FMLA EN + DN Letter Generator</div>
+>>>>>>> 381770a54d749418938dcde48229ea2957a26dd3
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {view === "letter" && (
@@ -2230,6 +2356,7 @@ export default function App() {
       </div>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "24px 16px" }}>
+<<<<<<< HEAD
         {activeClaim && view === "form" && (
           <div style={{ background: BBGL, border: `1px solid ${BBDR}`, borderRadius: 8, padding: "10px 16px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
             <div style={{ fontSize: 13, color: BLUE, fontFamily: ff }}>
@@ -2240,6 +2367,8 @@ export default function App() {
             </button>
           </div>
         )}
+=======
+>>>>>>> 381770a54d749418938dcde48229ea2957a26dd3
         {view === "form" ? (
           <div style={{ background: "white", borderRadius: 10, padding: "28px 32px", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
             <InputForm form={form} setForm={setForm} onGenerate={() => setView("letter")} />
