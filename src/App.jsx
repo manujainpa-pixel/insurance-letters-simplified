@@ -257,341 +257,326 @@ const PartBadge = ({ label, color }) => (
   <span style={{ background: color || NAV, color: "white", borderRadius: 4, padding: "2px 9px", fontSize: 10, fontWeight: 700, fontFamily: ff, letterSpacing: "0.06em", marginRight: 8 }}>{label}</span>
 );
 
-// ─── GENERATED LETTER ─────────────────────────────────────────────────────────
+// ─── GENERATED LETTER (CLAIMANT-FACING) ──────────────────────────────────────
 function GeneratedLetter({ f }) {
-  const isEligible = f.fmlaEligible === "yes";
-  const isDesignated = f.isDesignated === "yes";
-  const stateCode = f.stateOfEmployment.includes("ME") ? "ME" : f.stateOfEmployment.includes("TN") ? "TN" : null;
-  const fmlaRemaining = Math.max(0, parseInt(f.fmlaEntitlementWeeks || 12) - parseInt(f.fmlaUsedWeeks || 0));
-  const maineRemaining = Math.max(0, parseInt(f.maineEntitlementWeeks || 10) - parseInt(f.maineUsedWeeks || 0));
-  const ltypes = { fmla: "Standalone FMLA", pfml: "FMLA + Paid Leave (PFML)", std: "FMLA + STD Integration" };
-  const ltypeColors = { fmla: NAV, pfml: "#0D6B3B", std: "#7C2D12" };
+  const isEligible  = f.fmlaEligible === "yes";
+  const isDesignated= f.isDesignated === "yes";
+  const scope       = f.noticeScope || "combined";
+  const showEN      = scope === "en"  || scope === "combined";
+  const showDN      = scope === "dn"  || scope === "combined";
+  const stateCode   = f.stateOfEmployment.includes("ME") ? "ME" : f.stateOfEmployment.includes("TN") ? "TN" : null;
+  const fmlaRem     = Math.max(0, parseInt(f.fmlaEntitlementWeeks || 12) - parseInt(f.fmlaUsedWeeks || 0));
+  const maineRem    = Math.max(0, parseInt(f.maineEntitlementWeeks || 10) - parseInt(f.maineUsedWeeks || 0));
 
-  const scope = f.noticeScope || "combined";
-  const showEN = scope === "en" || scope === "combined";
-  const showDN = scope === "dn" || scope === "combined";
-  const showRights = showDN; // Part C always accompanies DN
+  // ── shared typography tokens ───────────────────────────────────────────────
+  const body   = { fontSize: 13.5, color: "#1a1a1a", lineHeight: 1.8, fontFamily: "Georgia, serif", margin: "0 0 14px" };
+  const label  = { fontSize: 10.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#555", fontFamily: ff, margin: "0 0 4px", display: "block" };
+  const value  = { fontSize: 13.5, color: "#1a1a1a", fontFamily: "Georgia, serif", borderBottom: "1px solid #ccc", paddingBottom: 3, margin: "0 0 14px" };
+  const rule   = { border: "none", borderTop: "1px solid #ddd", margin: "20px 0" };
+  const indent = { paddingLeft: 20, borderLeft: "2px solid #ccc", margin: "0 0 14px" };
 
-  const scopeMeta = {
-    en:       { title: "Notice of Eligibility", subtitle: "& Rights and Responsibilities", reg: "29 CFR §825.300(b)", badge: "EN Only — WH-381" },
-    dn:       { title: "Designation Notice", subtitle: "& Rights and Responsibilities", reg: "29 CFR §825.300(d)", badge: "DN Only — WH-382" },
-    combined: { title: "Notice of Eligibility", subtitle: "& Leave Designation", reg: "29 CFR §825.300(b)+(d)", badge: "EN + DN Combined" },
-  }[scope];
+  const Row = ({ l, v }) => (
+    <div style={{ display: "grid", gridTemplateColumns: "180px 1fr", gap: "0 16px", margin: "0 0 8px" }}>
+      <span style={{ ...label, margin: 0, alignSelf: "center" }}>{l}</span>
+      <span style={{ ...body, margin: 0, fontSize: 13 }}>{v || "—"}</span>
+    </div>
+  );
+
+  const scopeTitle = scope === "en" ? "Notice of Eligibility" : scope === "dn" ? "Designation Notice" : "Notice of Eligibility and Leave Designation";
+  const firstName = (f.employeeName || "").split(" ")[0] || "Employee";
 
   return (
-    <div style={{ fontFamily: "'Georgia', serif" }}>
-      {/* Letter header */}
-      <div style={{ borderBottom: `3px solid ${GOLD}`, paddingBottom: 16, marginBottom: 20 }}>
+    <div style={{ fontFamily: "Georgia, serif", maxWidth: 680, margin: "0 auto", color: "#1a1a1a" }}>
+
+      {/* ── LETTERHEAD ── */}
+      <div style={{ borderBottom: "2px solid #1a1a1a", paddingBottom: 16, marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
           <div>
-            <div style={{ fontSize: 11, color: GOLD, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: ff, marginBottom: 3 }}>{f.adminName || "Leave Administrator"}</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: NAV, lineHeight: 1.2 }}>FMLA {scopeMeta.title}</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: NAV, lineHeight: 1.2 }}>{scopeMeta.subtitle}</div>
-            <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <span style={{ background: scope === "en" ? "#0D6B3B" : scope === "dn" ? "#7C2D12" : NAV, color: "white", fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 99, fontFamily: ff, letterSpacing: "0.05em" }}>{scopeMeta.badge}</span>
-              <span style={{ background: ltypeColors[f.letterType], color: "white", fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 99, fontFamily: ff, letterSpacing: "0.05em" }}>{ltypes[f.letterType]}</span>
-              {stateCode && <span style={{ background: G100, color: G600, fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 99, fontFamily: ff }}>{stateCode} State Overlay</span>}
-              <span style={{ background: G100, color: G600, fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 99, fontFamily: ff }}>{scopeMeta.reg}</span>
-            </div>
+            <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#555", fontFamily: ff, margin: "0 0 4px" }}>
+              {f.adminName || "Leave Administrator"}
+            </p>
+            <p style={{ fontSize: 20, fontWeight: 700, color: "#1a1a1a", margin: "0 0 2px", lineHeight: 1.2 }}>Family and Medical Leave Act</p>
+            <p style={{ fontSize: 15, color: "#333", margin: 0 }}>{scopeTitle}</p>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 10, color: G400, fontFamily: ff }}>LETTER ID</div>
-            <div style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700, color: NAV }}>{f.letterId}</div>
-            <div style={{ fontSize: 10, color: G400, marginTop: 4, fontFamily: ff }}>Claim: {f.claimNumber}</div>
-            <div style={{ fontSize: 10, color: G400, fontFamily: ff }}>{f.generatedDate} · {f.templateVersion}</div>
+            <p style={{ ...body, margin: "0 0 2px", fontSize: 12, color: "#555" }}>{f.generatedDate}</p>
+            <p style={{ fontSize: 11, color: "#888", fontFamily: ff, margin: 0 }}>Claim no. {f.claimNumber}</p>
           </div>
         </div>
       </div>
 
-      {/* Address block */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 22 }}>
-        {[
-          { title: "Leave Administrator", lines: [f.adminName, f.adminPhone, f.adminEmail].filter(Boolean) },
-          { title: "Employer HR Contact", lines: [f.hrContactName && `${f.hrContactName}${f.hrTitle ? `, ${f.hrTitle}` : ""}`, f.employerName, f.hrPhone, f.hrEmail].filter(Boolean) },
-          { title: "Employee (Recipient)", lines: [f.employeeName, f.position, f.department, f.employeeAddress, f.employeeId ? `ID: ${f.employeeId}` : ""].filter(Boolean) },
-        ].map(b => (
-          <div key={b.title}>
-            <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: G400, marginBottom: 6, fontFamily: ff }}>{b.title}</div>
-            {b.lines.map((l, i) => <div key={i} style={{ fontSize: 12.5, color: i === 0 ? G900 : G600, fontWeight: i === 0 ? 600 : 400, lineHeight: 1.6, fontFamily: ff }}>{l}</div>)}
-          </div>
-        ))}
+      {/* ── ADDRESSES ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 24 }}>
+        <div>
+          <span style={label}>From</span>
+          <p style={{ ...body, margin: 0, fontSize: 13, lineHeight: 1.7 }}>
+            {f.adminName || f.hrContactName || "Leave Administrator"}<br />
+            {f.adminPhone && <>{f.adminPhone}<br /></>}
+            {f.adminEmail && <>{f.adminEmail}<br /></>}
+            {f.worksiteAddress && <>{f.worksiteAddress}</>}
+          </p>
+        </div>
+        <div>
+          <span style={label}>To</span>
+          <p style={{ ...body, margin: 0, fontSize: 13, lineHeight: 1.7 }}>
+            {f.employeeName || "Employee"}<br />
+            {f.position && <>{f.position}{f.department ? `, ${f.department}` : ""}<br /></>}
+            {f.employeeAddress && <>{f.employeeAddress}<br /></>}
+            {f.employeeId && <>ID: {f.employeeId}</>}
+          </p>
+        </div>
       </div>
 
-      {showEN && <hr style={{ border: "none", borderTop: `1px dashed ${G200}`, margin: "0 0 20px" }} />}
+      <hr style={rule} />
 
-      {/* PART A – Eligibility */}
-      {showEN && <div style={{ marginBottom: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-          <PartBadge label="PART A" /><span style={{ fontWeight: 700, fontSize: 14, color: NAV }}>Eligibility Notice</span>
-          <span style={{ fontSize: 11, color: G400, fontFamily: ff, marginLeft: 10 }}>Required within 5 business days of {f.noticeReceived}</span>
-        </div>
+      {/* ── SALUTATION ── */}
+      <p style={body}>Dear {firstName},</p>
 
-        <p style={{ fontSize: 13.5, color: G800, lineHeight: 1.75, marginBottom: 14 }}>
-          On <strong>{f.noticeReceived}</strong>, we received notification that <strong>{f.employeeName || "[Employee]"}</strong> requires
-          a leave of absence beginning on or around <strong>{f.leaveStart || "[TBD]"}</strong>.
-          This notice advises you of your eligibility status under the Family and Medical Leave Act (FMLA), 29 U.S.C. §§ 2601–2654
-          {stateCode === "ME" && ", and the Maine Family Medical Leave Requirements, 26 M.R.S. §§ 843–847, and Maine PFML (Title 26 §§ 850-A through 850-R)"}
-          {stateCode === "TN" && ", and the Tennessee Parental Leave Act, T.C.A. § 4-21-408 (where applicable)"}.
+      {/* ══════════════════════════════════════════════════════════════════════
+          PART A — ELIGIBILITY NOTICE
+      ══════════════════════════════════════════════════════════════════════ */}
+      {showEN && <>
+        <p style={body}>
+          We received your request for leave on <strong>{f.noticeReceived}</strong>. This letter is to inform you of your eligibility for leave under the Family and Medical Leave Act (FMLA)
+          {stateCode === "ME" ? " and the Maine Family Medical Leave Requirements" : stateCode === "TN" ? " and, where applicable, the Tennessee Parental Leave Act" : ""}.
         </p>
 
-        <LDivider label="Leave Request" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px 20px", marginBottom: 18 }}>
-          <LField label="Claim Number" value={f.claimNumber} />
-          <LField label="Notice Received" value={f.noticeReceived} />
-          <LField label="Leave Type" value={f.leaveType} />
-          <LField label="Start Date" value={f.leaveStart} />
-          <LField label="End Date" value={f.leaveEnd} />
-          <LField label="Qualifying Reason" value={f.qualifyingReason} />
-          {f.providerName && <><LField label="Certifying Provider" value={f.providerName} /><LField label="Practice" value={f.providerPractice} /></>}
-          {f.leaveType !== "Continuous" && <LField label="Intermittent Pattern" value={f.intermittentFrequency} />}
+        {/* Leave details */}
+        <p style={{ ...label, marginBottom: 8 }}>Your leave request</p>
+        <div style={{ ...indent, paddingLeft: 16, borderLeft: "2px solid #ccc", marginBottom: 18 }}>
+          <Row l="Reason for leave"    v={f.qualifyingReason} />
+          <Row l="Type of leave"       v={f.leaveType} />
+          <Row l="Requested start"     v={f.leaveStart} />
+          <Row l="Requested end"       v={f.leaveEnd} />
+          {f.leaveType !== "Continuous" && f.intermittentFrequency && <Row l="Schedule" v={f.intermittentFrequency} />}
         </div>
 
-        <LDivider label="Eligibility Determination" />
-        <div style={{ marginBottom: 12 }}>
-          <LBadge yes={isEligible} yLabel="Eligible for Federal FMLA Leave" nLabel="Not Eligible for Federal FMLA Leave" />
-          {stateCode === "ME" && <span style={{ marginLeft: 8 }}><LBadge yes={isEligible} yLabel="Eligible for Maine FMLA" nLabel="Not Eligible for Maine FMLA" /></span>}
-        </div>
+        {/* Eligibility */}
+        <p style={{ ...label, marginBottom: 8 }}>Your eligibility status</p>
+        {isEligible ? (<>
+          <p style={body}>
+            Based on our records, you are <strong>eligible for FMLA leave</strong>. You are entitled to up to <strong>{f.fmlaEntitlementWeeks || 12} weeks</strong> of job-protected leave in your current leave year.
+            You have used <strong>{f.fmlaUsedWeeks || 0} weeks</strong> so far, leaving <strong>{fmlaRem} weeks</strong> available.
+          </p>
+          {stateCode === "ME" && (
+            <p style={body}>
+              Under Maine state law, you are also entitled to up to <strong>{f.maineEntitlementWeeks || 10} weeks</strong> of leave within any two-year period.
+              You have used <strong>{f.maineUsedWeeks || 0} weeks</strong> of your Maine entitlement, leaving <strong>{maineRem} weeks</strong> available under state law.
+              Your leave will be counted against both your federal and state balances at the same time.
+            </p>
+          )}
+        </>) : (<>
+          <p style={body}>
+            Based on our records, you are <strong>not eligible for FMLA leave</strong> at this time for the following reason{[f.ineligMonths, f.ineligHours, f.ineligSize].filter(Boolean).length > 1 ? "s" : ""}:
+          </p>
+          <div style={indent}>
+            {f.ineligMonths && <p style={{ ...body, margin: "0 0 6px" }}>You have not been employed for at least 12 months.</p>}
+            {f.ineligHours  && <p style={{ ...body, margin: "0 0 6px" }}>You have not worked at least 1,250 hours in the past 12 months.</p>}
+            {f.ineligSize   && <p style={{ ...body, margin: "0 0 6px" }}>Your worksite does not employ 50 or more employees within 75 miles.</p>}
+          </div>
+          <p style={body}>
+            Please contact {f.hrContactName || "your HR representative"} at {f.hrPhone || f.adminPhone || "the number above"} if you have questions about your eligibility.
+          </p>
+        </>)}
+      </>}
 
-        {isEligible ? (
-          <>
-            <LNote type="success">
-              All FMLA eligibility criteria are met: <strong>{f.employeeName || "Employee"}</strong> has been employed
-              for <strong>{f.monthsEmployed} months</strong> (≥12 required), worked <strong>{parseInt(f.hoursLast12Mo || 0).toLocaleString()} hours</strong> in
-              the preceding 12 months (≥1,250 required), and the worksite has <strong>{f.worksiteHeadcount}+ employees</strong> within 75 miles.
-              {stateCode === "ME" && " Maine FMLA eligibility (12 consecutive months; private employer with 15+ employees) is also confirmed."}
-            </LNote>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px 16px", marginBottom: 10 }}>
-              <LField label="Federal FMLA Entitlement" value={`${f.fmlaEntitlementWeeks} weeks`} />
-              <LField label="Federal FMLA Used" value={`${f.fmlaUsedWeeks} weeks`} />
-              <LField label="Federal FMLA Remaining" value={`${fmlaRemaining} weeks`} />
-              <LField label="Leave Year Method" value={f.leaveYearMethod} />
-              {stateCode === "ME" && <>
-                <LField label="ME FMLA Entitlement" value={`${f.maineEntitlementWeeks} weeks`} />
-                <LField label="ME FMLA Used (2-yr)" value={`${f.maineUsedWeeks} weeks`} />
-                <LField label="ME FMLA Remaining" value={`${maineRemaining} weeks`} />
-                <LField label="ME Benefit Year Start" value={f.maineBenefitYearStart} />
-              </>}
-            </div>
-            {stateCode === "ME" && (
-              <LNote type="info">
-                <strong>Maine 2-Year Tracking:</strong> Maine FMLA entitlement (10 weeks) is measured against a rolling 2-year window, not an annual leave year.
-                Your available leave may be limited by the lesser of your remaining federal (12-wk/year) or state (10-wk/2-yr) balance.
-                Current lesser balance: <strong>{Math.min(fmlaRemaining, maineRemaining)} weeks</strong>.
-              </LNote>
-            )}
-          </>
+      {/* ══════════════════════════════════════════════════════════════════════
+          PART B — DESIGNATION NOTICE
+      ══════════════════════════════════════════════════════════════════════ */}
+      {showDN && <>
+        {showEN && <hr style={rule} />}
+
+        {scope === "dn" && (
+          <p style={{ ...body, color: "#555", fontSize: 12 }}>
+            Note: A separate eligibility notice was issued to you on {f.noticeReceived}. This letter confirms the designation of your leave.
+          </p>
+        )}
+
+        <p style={{ ...label, marginBottom: 8 }}>Designation of your leave</p>
+        {isDesignated ? (<>
+          <p style={body}>
+            Your leave from <strong>{f.leaveStart}</strong> to <strong>{f.leaveEnd}</strong> has been <strong>designated as FMLA leave</strong>.
+            {f.weeksCountedFmla && ` Approximately ${f.weeksCountedFmla} week${f.weeksCountedFmla !== "1" ? "s" : ""} of leave will be counted against your FMLA entitlement.`}
+            {stateCode === "ME" && " This leave is designated concurrently under federal FMLA and Maine state leave law."}
+          </p>
+        </>) : (<>
+          <p style={body}>
+            After reviewing your request, we are unable to designate this leave as FMLA leave at this time.
+            {f.nonDesignationReason && ` ${f.nonDesignationReason}.`}
+          </p>
+          <p style={body}>
+            If you believe this determination is incorrect or if your circumstances change, please contact us at the number above.
+          </p>
+        </>)}
+
+        {/* Medical certification */}
+        {f.medCertRequired === "yes" && (<>
+          <hr style={rule} />
+          <p style={{ ...label, marginBottom: 8 }}>Medical certification</p>
+          {f.medCertStatus === "Received — Sufficient" ? (
+            <p style={body}>We have received sufficient medical certification for this leave. No further documentation is required at this time.</p>
+          ) : f.medCertStatus === "Pending" ? (<>
+            <p style={body}>
+              To support your leave request, you must provide medical certification from your treating healthcare provider.
+              Please submit the completed certification by <strong>{f.medCertDueDate}</strong>.
+            </p>
+            <p style={body}>
+              Failure to provide certification by the due date may result in a delay or denial of your leave request. If you need additional time, please contact us before the deadline.
+            </p>
+          </>) : (
+            <p style={body}>
+              We have received your medical certification. Please note: {f.medCertStatus?.toLowerCase()}.
+              {f.medCertStatus === "Received — Insufficient" && " We will contact you regarding what additional information is needed."}
+            </p>
+          )}
+          {f.recertRequired === "yes" && f.recertDate && (
+            <p style={body}>Recertification will be required by <strong>{f.recertDate}</strong>. We will notify you when it is due.</p>
+          )}
+        </>)}
+
+        {/* Paid leave */}
+        <hr style={rule} />
+        <p style={{ ...label, marginBottom: 8 }}>Use of paid leave during your absence</p>
+        {f.paidLeaveConcurrent === "yes" ? (
+          <p style={body}>
+            You are required to use any accrued {f.paidLeaveTypes || "paid leave"} at the same time as your FMLA leave. This does not extend the total length of leave available to you.
+            {f.letterType === "std" && " Because you are receiving short-term disability benefits during this period, you are not required to use accrued paid time off."}
+          </p>
         ) : (
-          <div style={{ background: RBGL, border: `1px solid ${RBDR}`, borderRadius: 6, padding: "12px 16px", marginBottom: 14 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: RED, marginBottom: 10, fontFamily: ff }}>Not eligible for the following reason(s):</div>
-            <LCheck checked={f.ineligMonths}>Have not been employed by {f.employerName || "employer"} for at least 12 months</LCheck>
-            <LCheck checked={f.ineligHours}>Have not worked at least 1,250 hours in the preceding 12 months</LCheck>
-            <LCheck checked={f.ineligSize}>Worksite does not employ 50 or more employees within a 75-mile radius</LCheck>
-          </div>
-        )}
-      </div>}
-
-      {/* ── DN Only banner ── */}
-      {scope === "dn" && (
-        <div style={{ background: ABGL, border: `1px solid ${ABDR}`, borderRadius: 6, padding: "10px 14px", marginBottom: 20, fontSize: 12.5, color: AMBER, fontFamily: ff }}>
-          <strong>Designation Notice only.</strong> A separate Eligibility Notice (WH-381) was previously issued for this claim on {f.noticeReceived}. This notice fulfills the designation requirement under 29 CFR §825.300(d).
-        </div>
-      )}
-
-      {/* PART B – Designation */}
-      {showDN && <hr style={{ border: "none", borderTop: `1px dashed ${G200}`, margin: "0 0 20px" }} />}
-      {showDN && <div style={{ marginBottom: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-          <PartBadge label={scope === "combined" ? "PART B" : "PART A"} /><span style={{ fontWeight: 700, fontSize: 14, color: NAV }}>Designation Notice</span>
-          <span style={{ fontSize: 11, color: G400, fontFamily: ff, marginLeft: 10 }}>Required within 5 business days of sufficient information</span>
-        </div>
-        <div style={{ marginBottom: 14 }}><LBadge yes={isDesignated} yLabel="Leave Designated as FMLA" nLabel="Leave NOT Designated as FMLA" /></div>
-        {isDesignated
-          ? <LNote type="success">This leave qualifies under FMLA. Approximately <strong>{f.weeksCountedFmla || "?"} weeks</strong> will be counted against your FMLA entitlement.{stateCode === "ME" && " This leave is also designated under the Maine Family Medical Leave Requirements and will count against your Maine FMLA balance concurrently."}</LNote>
-          : <LNote type="warn"><strong>Leave has not been designated as FMLA:</strong> {f.nonDesignationReason}</LNote>
-        }
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px 20px", marginBottom: 16 }}>
-          <LField label="FMLA Leave Period Start" value={f.leaveStart} />
-          <LField label="FMLA Leave Period End" value={f.leaveEnd} />
-          <LField label="Weeks Counted (Federal)" value={f.weeksCountedFmla ? `${f.weeksCountedFmla} weeks` : "—"} />
-        </div>
-        <LDivider label="Requirements & Conditions" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: NAV, marginBottom: 10, fontFamily: ff }}>Medical Certification</div>
-            <LCheck checked={f.medCertRequired === "yes"}>Medical certification {f.medCertRequired === "yes" ? `required — Status: ${f.medCertStatus}${f.medCertDueDate && f.medCertStatus === "Pending" ? ` (due ${f.medCertDueDate})` : ""}` : "not required for this leave"}</LCheck>
-            <LCheck checked={f.recertRequired === "yes"}>Recertification {f.recertRequired === "yes" ? `required by ${f.recertDate}` : "not required at this time"}</LCheck>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: NAV, marginBottom: 10, fontFamily: ff }}>Leave Conditions</div>
-            <LCheck checked={f.paidLeaveConcurrent === "yes"}>{f.paidLeaveConcurrent === "yes" ? `Concurrent use of ${f.paidLeaveTypes} required` : "Concurrent paid leave not required"}</LCheck>
-            <LCheck checked={f.fitForDutyRequired === "yes"}>Fitness-for-duty certification {f.fitForDutyRequired === "yes" ? "required before return to work" : "not required"}</LCheck>
-            {f.fitForDutyRequired === "yes" && <LCheck checked={f.fitForDutyEssentialFunctions === "yes"}>Must address essential functions of the position</LCheck>}
-          </div>
-        </div>
-      </div>}
-
-      {/* ── STD ADDENDUM ── */}
-      {showDN && f.letterType === "std" && (
-        <>
-          <hr style={{ border: "none", borderTop: `1px dashed ${G200}`, margin: "0 0 20px" }} />
-          <div style={{ marginBottom: 28 }}>
-            <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-              <PartBadge label="ADDENDUM — STD" color="#7C2D12" />
-              <span style={{ fontWeight: 700, fontSize: 14, color: "#7C2D12" }}>Short-Term Disability Integration</span>
-            </div>
-            <LNote type="warn">
-              <strong>STD + FMLA Concurrency Notice:</strong> Your approved Short-Term Disability benefit and your FMLA leave will run concurrently for the same qualifying period.
-              FMLA provides job protection; STD provides income replacement. Neither extends the other — the clocks run simultaneously.
-              {f.stdNotePtoRestriction && " Neither you nor your employer may require the use of accrued paid time off while you are receiving STD benefits, as STD is not unpaid leave."}
-            </LNote>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px 20px", marginBottom: 16 }}>
-              <LField label="STD Carrier / Insurer" value={f.stdCarrierName} />
-              <LField label="Plan Name" value={f.stdPlanName} />
-              <LField label="STD Claim Number" value={f.stdClaimNumber} />
-              <LField label="Elimination / Waiting Period" value={`${f.stdEliminationDays} calendar days`} />
-              <LField label="Approved Weekly STD Benefit" value={f.stdWeeklyBenefit ? `$${f.stdWeeklyBenefit}` : "—"} />
-              <LField label="Benefit Percentage of Salary" value={`${f.stdBenefitPct}%`} />
-              <LField label="Maximum STD Duration" value={`${f.stdMaxDurationWeeks} weeks`} />
-              <LField label="STD Estimated Exhaustion" value={f.stdExhaustionDate || "—"} />
-              <LField label="Offset Sources" value={f.stdOffsetSources || "None disclosed"} />
-            </div>
-            {f.stdBridgeToLtd === "yes" && (
-              <LNote type="info"><strong>LTD Bridge:</strong> If your disability extends beyond the STD maximum duration, you may be eligible for Long-Term Disability (LTD) benefits.
-                {f.ltdClaimNumber && ` LTD Claim Number: ${f.ltdClaimNumber}.`} Contact your HR or the plan administrator for LTD application procedures.
-              </LNote>
-            )}
-            <LNote type="info">
-              <strong>When STD Ends:</strong> Your FMLA job protection expires after 12 weeks regardless of whether your STD benefit continues beyond that point.
-              If you remain disabled after FMLA exhaustion, STD income benefits may continue per your policy terms, but job reinstatement rights under FMLA will no longer apply.
-              You may have separate rights under the ADA — contact HR to discuss reasonable accommodation.
-            </LNote>
-          </div>
-        </>
-      )}
-
-      {/* ── PFML ADDENDUM ── */}
-      {showDN && f.letterType === "pfml" && (
-        <>
-          <hr style={{ border: "none", borderTop: `1px dashed ${G200}`, margin: "0 0 20px" }} />
-          <div style={{ marginBottom: 28 }}>
-            <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-              <PartBadge label="ADDENDUM — PFML" color="#0D6B3B" />
-              <span style={{ fontWeight: 700, fontSize: 14, color: "#0D6B3B" }}>Paid Family & Medical Leave Coordination</span>
-            </div>
-            <LNote type="success">
-              <strong>FMLA + PFML Concurrency Notice:</strong> Your approved {f.pfmlProgram || "state Paid Family & Medical Leave"} benefit will run
-              concurrently with your FMLA-designated leave. FMLA provides job protection and health benefit continuation;
-              PFML provides partial wage replacement. Running concurrently does not extend your total leave entitlement.
-            </LNote>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px 20px", marginBottom: 16 }}>
-              <LField label="PFML Program" value={f.pfmlProgram} />
-              <LField label="PFML Administrator" value={f.pfmlAdminContact} />
-              <LField label="PFML Claim Number" value={f.pfmlClaimNumber} />
-              <LField label="Waiting / Elimination Period" value={`${f.pfmlWaitingDays} calendar days`} />
-              <LField label="Weekly PFML Benefit (Est.)" value={f.pfmlWeeklyBenefit ? `$${f.pfmlWeeklyBenefit}` : "—"} />
-              <LField label="Benefit Percentage of Wages" value={`${f.pfmlBenefitPct}%`} />
-              <LField label="PFML Weeks Available" value={`${f.pfmlWeeksAvailable} weeks`} />
-              <LField label="PFML Weeks Used" value={`${f.pfmlWeeksUsed} weeks`} />
-              <LField label="Primary Payer" value={f.pfmlPrimaryPayer} />
-            </div>
-            <LCheck checked={f.pfmlClaimFiled === "yes"}>PFML claim has been filed with {f.pfmlAdminContact || "the state program administrator"}</LCheck>
-            <LCheck checked={f.pfmlOffsetStd === "yes"}>PFML benefits are offset by concurrent STD payments (dollar-for-dollar)</LCheck>
-            {stateCode === "ME" && (
-              <LNote type="info">
-                <strong>Maine PFML Notice (Effective May 1, 2026):</strong> Maine's Paid Family & Medical Leave program (administered by Aflac on behalf of the State)
-                provides up to 12 weeks of partial wage replacement in a benefit year. Benefits are not subject to mandatory PTO offset — employers cannot require you to exhaust
-                accrued paid leave before or during PFML. You continue to accrue all paid time and employment benefits during PFML as if actively working.
-                This leave is designated concurrently under: Federal FMLA, Maine FMLA, and Maine PFML.
-              </LNote>
-            )}
-          </div>
-        </>
-      )}
-
-      {/* PART C – Rights */}
-      {showRights && <hr style={{ border: "none", borderTop: `1px dashed ${G200}`, margin: "0 0 20px" }} />}
-      {showRights && <div style={{ marginBottom: 28 }}>
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 14 }}>
-          <PartBadge label={scope === "combined" ? "PART C" : "PART B"} /><span style={{ fontWeight: 700, fontSize: 14, color: NAV }}>Rights, Benefits & Responsibilities</span>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px", marginBottom: 14 }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: NAV, marginBottom: 10, fontFamily: ff }}>Health Benefits</div>
-            <LCheck checked={true}>Group health benefits continue during leave on the same terms as if actively employed</LCheck>
-            <LField label="Your Premium Share" value={f.employeePremiumShare ? `$${f.employeePremiumShare}` : "Per plan terms"} />
-            <LField label="Payment Method" value={f.premiumPaymentMethod} />
-          </div>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: NAV, marginBottom: 10, fontFamily: ff }}>Return to Work</div>
-            <LField label="Anticipated Return Date" value={f.anticipatedReturn || "—"} />
-            <LCheck checked={true}>Contact HR at least <strong>{f.contactDaysBeforeReturn} business days</strong> before anticipated return</LCheck>
-            {f.fitForDutyRequired === "yes" && <LCheck checked={true}>Fitness-for-duty certification must be provided before reinstatement</LCheck>}
-          </div>
-        </div>
-
-        {stateCode === "TN" && (f.qualifyingReason.includes("Birth") || f.qualifyingReason.includes("Adoption") || f.qualifyingReason.includes("bonding")) && (
-          <LNote type="warn">
-            <strong>Tennessee Parental Leave Act (T.C.A. § 4-21-408):</strong> If your employer employs 100 or more full-time employees at this worksite,
-            you may be entitled to up to <strong>4 months</strong> of unpaid parental leave for birth, adoption, childbirth, or nursing of an infant.
-            This 4-month period runs concurrently with your FMLA leave (not in addition to it).
-            Tennessee law requires 3 months' advance notice where foreseeable (except medical emergencies).
-            Your HR representative will confirm whether this employer meets the 100-employee threshold.
-          </LNote>
-        )}
-        {stateCode === "TN" && !f.qualifyingReason.includes("Birth") && !f.qualifyingReason.includes("Adoption") && !f.qualifyingReason.includes("bonding") && (
-          <LNote type="info">
-            <strong>Tennessee State Law Notice:</strong> Tennessee does not have a general state family and medical leave law equivalent to FMLA.
-            The Tennessee Parental Leave Act applies only to birth, adoption, and nursing leave — it does not apply to this leave request.
-            Federal FMLA is the sole governing law for this absence.
-          </LNote>
-        )}
-        {stateCode === "ME" && (
-          <LNote type="info">
-            <strong>Maine Leave Coordination Summary:</strong> This leave is designated concurrently under: (1) Federal FMLA — up to 12 weeks/year, job-protected;
-            (2) Maine FMLA — up to 10 weeks in any 2-year period, broader family definitions including siblings and domestic partners;
-            {f.letterType === "pfml" ? " (3) Maine PFML — up to 12 weeks partial wage replacement, administered by Aflac." : ""}
-            {" "}Your available leave is limited to the lesser of your remaining balances under each applicable law.
-          </LNote>
+          <p style={body}>You are not required to use accrued paid leave during this FMLA absence.</p>
         )}
 
-        <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: NAV, marginBottom: 10, fontFamily: ff }}>Your Obligations</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px" }}>
-            <LCheck checked={true}>Notify us promptly if leave dates or duration change</LCheck>
-            <LCheck checked={true}>Continue paying your share of health insurance premiums</LCheck>
-            <LCheck checked={true}>Follow employer's normal call-in procedures each day of absence</LCheck>
-            <LCheck checked={true}>Provide fitness-for-duty cert before return (if required)</LCheck>
-            <LCheck checked={true}>Notify us if you are able to return earlier than anticipated</LCheck>
-            <LCheck checked={true}>{stateCode === "ME" ? "Provide 30 days' advance notice where foreseeable (Maine law)" : stateCode === "TN" ? "Provide notice per employer and FMLA requirements" : "Provide 30 days' advance notice where foreseeable"}</LCheck>
+        {/* STD addendum */}
+        {f.letterType === "std" && (<>
+          <hr style={rule} />
+          <p style={{ ...label, marginBottom: 8 }}>Short-term disability benefit</p>
+          <p style={body}>
+            Your short-term disability (STD) benefit will run at the same time as your FMLA leave — they do not stack on top of each other.
+            Your FMLA leave protects your job; your STD benefit provides income replacement during your absence.
+          </p>
+          <div style={{ ...indent, marginBottom: 18 }}>
+            {f.stdClaimNumber   && <Row l="STD claim number"      v={f.stdClaimNumber} />}
+            {f.stdCarrierName   && <Row l="Administered by"       v={f.stdCarrierName} />}
+            {f.stdWeeklyBenefit && <Row l="Approved weekly benefit" v={`$${f.stdWeeklyBenefit}`} />}
+            {f.stdEliminationDays && <Row l="Waiting period"      v={`${f.stdEliminationDays} calendar days before benefit begins`} />}
+            {f.stdMaxDurationWeeks && <Row l="Maximum benefit duration" v={`${f.stdMaxDurationWeeks} weeks`} />}
           </div>
-        </div>
-      </div>}
+          {f.stdBridgeToLtd === "yes" && (
+            <p style={body}>
+              If your disability continues beyond the short-term disability period, you may be eligible for long-term disability (LTD) benefits.
+              {f.ltdClaimNumber ? ` An LTD claim (${f.ltdClaimNumber}) has been opened.` : " Please contact your HR representative to discuss LTD eligibility if that situation arises."}
+            </p>
+          )}
+          <p style={body}>
+            Your FMLA job protection lasts up to {f.fmlaEntitlementWeeks || 12} weeks. If your disability continues beyond your FMLA entitlement, your STD income benefits may continue per your plan terms, but your right to return to your position under FMLA will have ended. Please contact us to discuss your options if you expect your recovery to extend beyond your FMLA leave period.
+          </p>
+        </>)}
 
-      {/* Signature block */}
-      <div style={{ borderTop: `2px solid ${G200}`, paddingTop: 18, marginTop: 4 }}>
-        <p style={{ fontSize: 13, color: G800, lineHeight: 1.7, fontFamily: "Georgia, serif", marginBottom: 16 }}>
-          Questions? Contact <strong>{f.adminName || "your Leave Administrator"}</strong> at <strong>{f.adminPhone}</strong> or <strong>{f.adminEmail}</strong>, referencing claim <strong>{f.claimNumber}</strong>.
+        {/* PFML addendum */}
+        {f.letterType === "pfml" && (<>
+          <hr style={rule} />
+          <p style={{ ...label, marginBottom: 8 }}>Paid family and medical leave benefit</p>
+          <p style={body}>
+            Your {f.pfmlProgram || "state paid family and medical leave"} benefit will run at the same time as your FMLA leave. This does not give you additional time off beyond your FMLA entitlement — both clocks run simultaneously.
+          </p>
+          <div style={{ ...indent, marginBottom: 18 }}>
+            {f.pfmlProgram        && <Row l="Program"             v={f.pfmlProgram} />}
+            {f.pfmlClaimNumber    && <Row l="PFML claim number"   v={f.pfmlClaimNumber} />}
+            {f.pfmlAdminContact   && <Row l="Administered by"     v={f.pfmlAdminContact} />}
+            {f.pfmlWeeklyBenefit  && <Row l="Estimated weekly benefit" v={`$${f.pfmlWeeklyBenefit}`} />}
+            {f.pfmlWaitingDays    && <Row l="Waiting period"      v={`${f.pfmlWaitingDays} calendar days`} />}
+            {f.pfmlWeeksAvailable && <Row l="Weeks available"     v={`${f.pfmlWeeksAvailable} weeks`} />}
+          </div>
+          {stateCode === "ME" && (
+            <p style={body}>
+              Under the Maine Paid Family and Medical Leave program, you are not required to use accrued paid time off before or during your PFML benefit period.
+              Your employment benefits continue to accrue as if you were actively working.
+            </p>
+          )}
+        </>)}
+
+        {/* Return to work */}
+        <hr style={rule} />
+        <p style={{ ...label, marginBottom: 8 }}>Returning to work</p>
+        <p style={body}>
+          We expect your return to work on or around <strong>{f.anticipatedReturn || f.leaveEnd || "the end of your approved leave period"}</strong>.
+          {f.contactDaysBeforeReturn && ` Please contact ${f.hrContactName || "HR"} at least ${f.contactDaysBeforeReturn} business day${f.contactDaysBeforeReturn !== "1" ? "s" : ""} before you plan to return.`}
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
-          {[
-            { label: "Authorized Signature", value: "" },
-            { label: "Date Issued", value: f.generatedDate, note: `Within 5 days of ${f.noticeReceived}` },
-            { label: "Delivery Method", value: f.deliveryMethod, note: `Audit: ${f.letterId}` },
-          ].map(s => (
-            <div key={s.label}>
-              <div style={{ fontSize: 10, color: G400, fontFamily: ff, marginBottom: 4 }}>{s.label}</div>
-              <div style={{ borderBottom: `1px solid ${G900}`, height: 32, display: "flex", alignItems: "flex-end", paddingBottom: 3, marginBottom: 3 }}>
-                <span style={{ fontSize: 13, fontWeight: s.value ? 600 : 400, color: s.value ? NAV : "transparent", fontFamily: ff }}>{s.value || "_"}</span>
-              </div>
-              {s.note && <div style={{ fontSize: 10, color: G400, fontFamily: ff }}>{s.note}</div>}
-            </div>
-          ))}
+        {f.fitForDutyRequired === "yes" && (
+          <p style={body}>
+            Before returning to work, you must provide a fitness-for-duty certification from your treating healthcare provider confirming that you are able to return
+            {f.fitForDutyEssentialFunctions === "yes" ? " and can perform the essential functions of your position" : ""}.
+            Please bring this documentation to HR on or before your first day back.
+          </p>
+        )}
+
+        {/* Rights and responsibilities */}
+        <hr style={rule} />
+        <p style={{ ...label, marginBottom: 8 }}>Your rights during leave</p>
+        <p style={body}>While on FMLA leave, you have the right to:</p>
+        <div style={indent}>
+          <p style={{ ...body, margin: "0 0 6px" }}>Continue your group health insurance coverage under the same terms as if you were still working.</p>
+          <p style={{ ...body, margin: "0 0 6px" }}>Return to the same position or an equivalent position with the same pay, benefits, and terms of employment.</p>
+          <p style={{ ...body, margin: "0 0 6px" }}>Be protected from retaliation or discrimination for exercising your rights under FMLA.</p>
         </div>
+
+        {/* Health insurance */}
+        {f.employeePremiumShare && (
+          <p style={body}>
+            Your health insurance will remain active during your leave. Your share of the premium is <strong>${f.employeePremiumShare}</strong>.
+            Payment method: {f.premiumPaymentMethod || "to be arranged with HR"}.
+            If premiums are not paid, your coverage may be terminated after a 30-day written notice.
+          </p>
+        )}
+
+        {/* State-specific obligations */}
+        {stateCode === "TN" && (f.qualifyingReason?.includes("Birth") || f.qualifyingReason?.includes("Adoption") || f.qualifyingReason?.includes("bonding")) && (
+          <p style={body}>
+            Under the Tennessee Parental Leave Act, you may be entitled to up to four months of unpaid leave for the birth, adoption, or nursing of a child, provided your employer meets the applicable employee count requirement.
+            This four-month period runs at the same time as your FMLA leave — it does not give you additional time beyond FMLA.
+            Tennessee law requires three months' advance notice where the leave is foreseeable, except in the case of a medical emergency.
+          </p>
+        )}
+
+        {/* Obligations */}
+        <hr style={rule} />
+        <p style={{ ...label, marginBottom: 8 }}>Your responsibilities</p>
+        <div style={indent}>
+          <p style={{ ...body, margin: "0 0 6px" }}>Notify us promptly if your leave dates or expected duration change.</p>
+          <p style={{ ...body, margin: "0 0 6px" }}>Follow {f.employerName ? `${f.employerName}'s` : "your employer's"} regular call-in procedures for each day you are absent.</p>
+          {f.paidLeaveConcurrent === "yes" && f.letterType !== "std" && (
+            <p style={{ ...body, margin: "0 0 6px" }}>Use your accrued {f.paidLeaveTypes || "paid leave"} at the same time as your FMLA leave.</p>
+          )}
+          <p style={{ ...body, margin: "0 0 6px" }}>Continue paying your share of health insurance premiums to avoid a lapse in coverage.</p>
+          {stateCode === "ME"
+            ? <p style={{ ...body, margin: "0 0 6px" }}>Provide at least 30 days' advance notice when your need for leave is foreseeable (Maine state requirement).</p>
+            : <p style={{ ...body, margin: "0 0 6px" }}>Provide at least 30 days' advance notice when your need for leave is foreseeable; otherwise notify us as soon as practicable.</p>
+          }
+        </div>
+      </>}
+
+      {/* ── CLOSING ── */}
+      <hr style={rule} />
+      <p style={body}>
+        If you have any questions about this notice or your leave, please contact us at <strong>{f.adminPhone || f.hrPhone || "the number above"}</strong> or <strong>{f.adminEmail || f.hrEmail || "the email address above"}</strong>,
+        and reference your claim number <strong>{f.claimNumber}</strong>.
+      </p>
+      <p style={body}>Sincerely,</p>
+      <div style={{ marginBottom: 4 }}>
+        <div style={{ borderBottom: "1px solid #1a1a1a", width: 200, height: 36, marginBottom: 4 }} />
+        <p style={{ ...body, margin: 0, fontSize: 12 }}>{f.adminName || f.hrContactName || "Leave Administrator"}</p>
+        {f.hrTitle && <p style={{ ...body, margin: 0, fontSize: 12, color: "#555" }}>{f.hrTitle}</p>}
+        <p style={{ ...body, margin: 0, fontSize: 12, color: "#555" }}>On behalf of {f.employerName || "Employer"}</p>
       </div>
 
-      <div style={{ marginTop: 20, padding: "10px 14px", background: NAV, borderRadius: 5, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-        <div style={{ fontSize: 10, color: "#93C5FD", fontFamily: ff }}>DOL WH-381/WH-382 · OMB 1235-0003 · {stateCode === "ME" ? "26 M.R.S. §§ 843–847" : stateCode === "TN" ? "T.C.A. § 4-21-408" : "Federal FMLA Only"}</div>
-        <div style={{ fontSize: 10, color: "#6B7280", fontFamily: ff }}>SAMPLE — For illustration purposes only · Have employment counsel validate before production use</div>
+      {/* ── FOOTER — for operator reference only ── */}
+      <div style={{ marginTop: 28, borderTop: "1px solid #ddd", paddingTop: 10 }}>
+        <p style={{ fontSize: 10, color: "#aaa", fontFamily: ff, margin: 0, lineHeight: 1.6 }}>
+          This notice is issued pursuant to the Family and Medical Leave Act of 1993, 29 U.S.C. §§ 2601–2654, and 29 CFR Part 825.
+          {stateCode === "ME" && " Maine Family Medical Leave Requirements, 26 M.R.S. §§ 843–850-R."}
+          {stateCode === "TN" && " Tennessee Parental Leave Act, T.C.A. § 4-21-408."}
+          {" "}Template {f.templateVersion} · Letter ID {f.letterId} · Delivered via {f.deliveryMethod}.
+        </p>
       </div>
     </div>
   );
