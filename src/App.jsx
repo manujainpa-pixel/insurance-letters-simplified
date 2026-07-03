@@ -555,6 +555,82 @@ function GeneratedLetter({ f }) {
         </div>
       </>}
 
+      {/* ── REQUIRED ATTACHMENTS ── */}
+      {(() => {
+        const isBonding = f.qualifyingReason?.includes("Birth") || f.qualifyingReason?.includes("Adoption") || f.qualifyingReason?.includes("bonding");
+        const isMilExig = f.qualifyingReason?.includes("exigency");
+        const isMilCare = f.qualifyingReason?.includes("caregiver");
+        const isFamilyCare = f.qualifyingReason?.includes("family member");
+        const needCert  = f.medCertRequired === "yes" && f.medCertStatus === "Pending";
+        const needFFD   = f.fitForDutyRequired === "yes";
+        const isSTD     = f.letterType === "std";
+        const isPFML    = f.letterType === "pfml";
+
+        const attachments = [];
+
+        // DOL cert forms
+        if (needCert && !isFamilyCare && !isMilExig && !isMilCare)
+          attachments.push({ label: "Medical Certification — Employee's Own Condition (WH-380-E)", url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-380-E.pdf", required: true });
+        if (needCert && isFamilyCare)
+          attachments.push({ label: "Medical Certification — Family Member's Condition (WH-380-F)", url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-380-F.pdf", required: true });
+        if (isMilExig)
+          attachments.push({ label: "Certification for Military Qualifying Exigency (WH-384)", url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-384.pdf", required: true });
+        if (isMilCare)
+          attachments.push({ label: "Certification for Serious Injury or Illness — Military (WH-385)", url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-385.pdf", required: true });
+
+        // FFD form
+        if (needFFD)
+          attachments.push({ label: "Fitness-for-Duty Certification (WH-380-E, Section IV)", url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-380-E.pdf", required: true, note: "To be completed by your treating provider before your return to work." });
+
+        // State forms
+        if (stateCode === "ME") {
+          attachments.push({ label: "Maine FMLA Employee Rights Notice", url: "https://www.maine.gov/labor/docs/2020/posters/fmla.pdf", required: true });
+          if (isPFML)
+            attachments.push({ label: "Maine Paid Family & Medical Leave — Employee Information", url: "https://www.maine.gov/pfml", required: true, note: "Explains how to file, benefit calculation, and appeal rights." });
+        }
+        if (stateCode === "TN" && isBonding)
+          attachments.push({ label: "Tennessee Parental Leave Act — Employee Summary", url: "https://www.tn.gov/humanrights/title-4/title-4-chapter-21/title-4-chapter-21-part-4.html", required: false, note: "For reference — summarizes your rights under T.C.A. § 4-21-408." });
+
+        // STD / PFML forms
+        if (isSTD && f.stdCarrierName)
+          attachments.push({ label: `Short-Term Disability Claim Form — ${f.stdCarrierName}`, url: "https://www.dol.gov/general/topic/disability/erisa", required: false, note: "Contact your HR representative or carrier directly for the claim form if not already submitted." });
+        if (isPFML && stateCode !== "ME")
+          attachments.push({ label: "State Paid Family & Medical Leave Claim Instructions", url: "https://www.dol.gov/general/topic/workhours/fmla", required: false });
+
+        // Always include DOL FMLA rights poster
+        attachments.push({ label: "Your Rights Under the FMLA — DOL Fact Sheet #28", url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/whdfs28.pdf", required: false, note: "Summary of your rights and the FMLA rules that apply to your leave." });
+        attachments.push({ label: "File a Complaint with DOL Wage and Hour Division", url: "https://www.dol.gov/agencies/whd/contact/complaints", required: false, note: "If you believe your FMLA rights have been violated, contact WHD at 1-866-487-9243." });
+
+        if (!attachments.length) return null;
+
+        const aLink = { color: "#1a1a1a", textDecoration: "underline", fontFamily: ff, fontSize: 12.5 };
+
+        return (<>
+          <hr style={rule} />
+          <p style={{ ...label, marginBottom: 10 }}>Enclosed documents and resources</p>
+          <p style={{ ...body, fontSize: 12.5, color: "#444" }}>
+            The following documents are enclosed with this notice or are available at the links below.
+            Items marked <strong>Required</strong> must be submitted by the due date indicated.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {attachments.map((a, i) => (
+              <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", paddingBottom: 10, borderBottom: i < attachments.length - 1 ? "1px solid #eee" : "none" }}>
+                <div style={{ flexShrink: 0, marginTop: 3 }}>
+                  {a.required
+                    ? <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 3, background: "#1a1a1a", color: "#fff", fontFamily: ff }}>Required</span>
+                    : <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 3, background: "#f0f0f0", color: "#555", fontFamily: ff }}>Reference</span>
+                  }
+                </div>
+                <div>
+                  <a href={a.url} target="_blank" rel="noopener noreferrer" style={aLink}>{a.label}</a>
+                  {a.note && <p style={{ ...body, margin: "3px 0 0", fontSize: 12, color: "#666" }}>{a.note}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>);
+      })()}
+
       {/* ── CLOSING ── */}
       <hr style={rule} />
       <p style={body}>
@@ -1095,7 +1171,166 @@ function ComplianceReport({ f }) {
     groups.push({ title: "Recordkeeping & Audit Trail (3-Year Retention)", icon: "🗂️", items: rkItems });
   }
 
-  // ── GROUP 13: Send Readiness Checklist ────────────────────────────────────
+  // ── GROUP 13: Required Attachments ───────────────────────────────────────
+  {
+    const isBonding   = f.qualifyingReason?.includes("Birth") || f.qualifyingReason?.includes("Adoption") || f.qualifyingReason?.includes("bonding");
+    const isMilExig   = f.qualifyingReason?.includes("exigency");
+    const isMilCare   = f.qualifyingReason?.includes("caregiver");
+    const isFamCare   = f.qualifyingReason?.includes("family member");
+    const needCert    = f.medCertRequired === "yes";
+    const certPending = f.medCertStatus === "Pending";
+    const needFFD     = f.fitForDutyRequired === "yes";
+    const isSTD       = f.letterType === "std";
+    const isPFML      = f.letterType === "pfml";
+
+    const atItems = [];
+
+    // ── DOL Medical Certification Forms ──
+    if (needCert && !isFamCare && !isMilExig && !isMilCare) atItems.push({
+      pass: !certPending,
+      reg: "29 CFR §825.305(b) / DOL WH-380-E",
+      req: "Medical Certification — Employee's Own Serious Health Condition (WH-380-E)",
+      detail: certPending
+        ? `⚠ Cert pending — must be provided to employee with the letter · Due: ${f.medCertDueDate || "15 days from today"}`
+        : `Cert status: ${f.medCertStatus}`,
+      warn: certPending ? "Attach WH-380-E with the letter so employee can give it to their provider" : null,
+      operatorNote: "Provide the blank WH-380-E form to the employee — do not require the employee to obtain their own form. Employer must pay for any second opinion.",
+      url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-380-E.pdf",
+      urlLabel: "Download WH-380-E (DOL.gov)",
+    });
+
+    if (needCert && isFamCare) atItems.push({
+      pass: !certPending,
+      reg: "29 CFR §825.305(b) / DOL WH-380-F",
+      req: "Medical Certification — Family Member's Serious Health Condition (WH-380-F)",
+      detail: certPending
+        ? `⚠ Cert pending — must be provided to employee with the letter · Due: ${f.medCertDueDate || "15 days from today"}`
+        : `Cert status: ${f.medCertStatus}`,
+      warn: certPending ? "Attach WH-380-F with the letter so employee can give it to their family member's provider" : null,
+      operatorNote: "Use WH-380-F (not WH-380-E) when leave is to care for a covered family member's serious health condition.",
+      url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-380-F.pdf",
+      urlLabel: "Download WH-380-F (DOL.gov)",
+    });
+
+    if (isMilExig) atItems.push({
+      pass: !certPending,
+      reg: "29 CFR §825.309 / DOL WH-384",
+      req: "Military Qualifying Exigency Certification (WH-384)",
+      detail: "Required for leave due to qualifying exigency arising from military deployment of covered family member",
+      warn: certPending ? "Attach WH-384 with this letter" : null,
+      operatorNote: "WH-384 covers 10 qualifying exigency categories. First-time exigency request requires documentation of covered servicemember's active duty orders.",
+      url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-384.pdf",
+      urlLabel: "Download WH-384 (DOL.gov)",
+    });
+
+    if (isMilCare) atItems.push({
+      pass: !certPending,
+      reg: "29 CFR §825.310 / DOL WH-385",
+      req: "Military Caregiver Certification — Serious Injury or Illness (WH-385 or WH-385-V)",
+      detail: "Required for military caregiver leave — up to 26 weeks for covered servicemember or veteran",
+      warn: certPending ? "Attach WH-385 or WH-385-V (for veterans) with this letter" : null,
+      operatorNote: "Military caregiver leave entitlement is 26 weeks (not 12) per 12-month period and is a separate entitlement from the regular 12-week FMLA leave bank.",
+      url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-385.pdf",
+      urlLabel: "Download WH-385 (DOL.gov)",
+    });
+
+    // ── Fitness-for-Duty ──
+    if (needFFD) atItems.push({
+      pass: true,
+      reg: "29 CFR §825.312",
+      req: "Fitness-for-Duty Certification — provide blank form to employee now so provider can complete before return",
+      detail: `FFD required · Essential functions addressed: ${f.fitForDutyEssentialFunctions === "yes" ? "Yes" : "No"} · Anticipated return: ${f.anticipatedReturn || f.leaveEnd || "TBD"}`,
+      operatorNote: "Best practice: give employee the blank FFD form (Section IV of WH-380-E or employer's own form) at the time of the designation notice — do not wait until days before return.",
+      url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-380-E.pdf",
+      urlLabel: "WH-380-E Section IV — Fitness for Duty (DOL.gov)",
+    });
+
+    // ── State Required ──
+    if (stateCode === "ME") {
+      atItems.push({
+        pass: true,
+        reg: "26 M.R.S. § 843 / Maine DOL",
+        req: "Maine Family Medical Leave — Employee Rights Notice (required posting & distribution)",
+        detail: "Maine employers with 15+ employees must provide the official Maine FMLA rights notice to employees",
+        operatorNote: "This is separate from the federal FMLA poster. Maine DOL requires it be posted and provided to employees at time of hire and at time of leave request.",
+        url: "https://www.maine.gov/labor/docs/2020/posters/fmla.pdf",
+        urlLabel: "Maine FMLA Rights Notice (maine.gov)",
+      });
+      if (isPFML) atItems.push({
+        pass: !!(f.pfmlClaimNumber),
+        reg: "26 M.R.S. § 850-D / Maine PFML",
+        req: "Maine Paid Family & Medical Leave — Employee Program Information",
+        detail: f.pfmlClaimNumber
+          ? `PFML claim ${f.pfmlClaimNumber} filed with ${f.pfmlAdminContact || "Aflac"} · Employee should receive program summary and appeal rights`
+          : "⚠ PFML claim not yet filed — employee needs program information to initiate claim",
+        warn: !f.pfmlClaimNumber ? "Provide Maine PFML information sheet so employee can file their PFML claim" : null,
+        operatorNote: "Maine PFML benefits are administered by Aflac on behalf of the state. Employee must file their own PFML claim separately — the employer cannot file on their behalf.",
+        url: "https://www.maine.gov/pfml",
+        urlLabel: "Maine PFML Information (maine.gov)",
+      });
+    }
+
+    if (stateCode === "TN" && isBonding) atItems.push({
+      pass: true,
+      reg: "T.C.A. § 4-21-408",
+      req: "Tennessee Parental Leave Act — Summary of Employee Rights (recommended)",
+      detail: `Qualifying reason: ${f.qualifyingReason} · Worksite headcount: ${f.worksiteHeadcount} (need ≥100 for TN Act to apply)`,
+      operatorNote: parseInt(f.worksiteHeadcount || 0) >= 100
+        ? "TN Parental Leave Act applies — 4 months concurrent with FMLA. Provide the employee with the TN Human Rights Commission reference."
+        : "Worksite headcount below 100 — TN Parental Leave Act does NOT apply. Do not include this attachment.",
+      url: "https://www.tn.gov/humanrights/title-4/title-4-chapter-21/title-4-chapter-21-part-4.html",
+      urlLabel: "TN Parental Leave Act — T.C.A. § 4-21-408 (tn.gov)",
+    });
+
+    // ── STD / PFML carrier ──
+    if (isSTD) atItems.push({
+      pass: !!(f.stdClaimNumber),
+      reg: "ERISA § 102 / Plan SPD",
+      req: `STD claim form and plan summary — ${f.stdCarrierName || "STD carrier"}`,
+      detail: f.stdClaimNumber
+        ? `STD claim ${f.stdClaimNumber} open · Weekly benefit $${f.stdWeeklyBenefit} · ${f.stdEliminationDays}-day elimination period · Max duration ${f.stdMaxDurationWeeks} weeks`
+        : "⚠ STD claim not yet initiated — provide employee with claim form or portal instructions",
+      warn: !f.stdClaimNumber ? "Attach STD claim form or carrier portal instructions if claim not yet filed" : null,
+      operatorNote: "STD and FMLA clocks start on the same day. Delay in STD claim filing does not extend FMLA — both clocks run from first day of absence after elimination period.",
+      url: "https://www.dol.gov/general/topic/disability/erisa",
+      urlLabel: "ERISA Disability Benefit Rights (DOL.gov)",
+    });
+
+    // ── Always include ──
+    atItems.push({
+      pass: true,
+      reg: "DOL WHD Fact Sheet #28",
+      req: "Your Rights Under the FMLA — DOL Fact Sheet #28 (recommended enclosure)",
+      detail: "Plain-language summary of FMLA rights, qualifying reasons, entitlement, and employer obligations",
+      operatorNote: "Including Fact Sheet #28 with every FMLA notice is a best practice that reduces employee inquiries and documents that full rights disclosure was made.",
+      url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/whdfs28.pdf",
+      urlLabel: "DOL Fact Sheet #28 — FMLA Rights (DOL.gov)",
+    });
+
+    atItems.push({
+      pass: true,
+      reg: "29 CFR §825.300(a)(2)",
+      req: "FMLA General Notice — DOL Official Poster (WH-1420)",
+      detail: "Must be posted in a conspicuous place and may be provided electronically if employee does not visit a physical worksite",
+      operatorNote: "If employee works remotely and never comes to a physical worksite, the FMLA poster must be provided electronically — posting alone does not satisfy the notice requirement.",
+      url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/fmlaen.pdf",
+      urlLabel: "Download FMLA Poster WH-1420 (DOL.gov)",
+    });
+
+    atItems.push({
+      pass: true,
+      reg: "29 CFR §825.220(c)",
+      req: "DOL Complaint Process — Wage and Hour Division",
+      detail: "Employee must be informed of their right to file a complaint with DOL WHD if they believe their FMLA rights were violated",
+      operatorNote: "This information is included in the claimant letter. Confirm the WHD phone number (1-866-487-9243) and complaint portal link are accurate before sending.",
+      url: "https://www.dol.gov/agencies/whd/contact/complaints",
+      urlLabel: "File a Complaint with DOL WHD (DOL.gov)",
+    });
+
+    groups.push({ title: "Required & Recommended Attachments", icon: "📎", items: atItems });
+  }
+
+  // ── GROUP 14: Send Readiness Checklist ────────────────────────────────────
   {
     const srItems = [];
     const hasEmployer  = !!(f.employerName && f.hrContactName && f.hrPhone);
@@ -1244,7 +1479,16 @@ function ComplianceReport({ f }) {
                           border: `1px solid ${item.pass && !item.warn ? GBDR : item.warn ? ABDR : RBDR}` }}>{item.reg}</div>
                       </div>
                       {/* Detail */}
-                      <div style={{ fontSize: 12, color: G600, lineHeight: 1.55, marginBottom: item.warn || item.operatorNote ? 6 : 0 }}>{item.detail}</div>
+                      <div style={{ fontSize: 12, color: G600, lineHeight: 1.55, marginBottom: item.warn || item.url || item.operatorNote ? 6 : 0 }}>{item.detail}</div>
+                      {/* Link */}
+                      {item.url && (
+                        <div style={{ marginBottom: item.warn || item.operatorNote ? 6 : 0 }}>
+                          <a href={item.url} target="_blank" rel="noopener noreferrer"
+                            style={{ fontSize: 11, color: BLUE, fontWeight: 600, fontFamily: ff, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                            <span style={{ fontSize: 13 }}>↗</span> {item.urlLabel || item.url}
+                          </a>
+                        </div>
+                      )}
                       {/* Warning action */}
                       {item.warn && (
                         <div style={{ fontSize: 11, color: AMBER, fontWeight: 600, background: ABGL, border: `1px solid ${ABDR}`, borderRadius: 4, padding: "5px 9px", marginBottom: item.operatorNote ? 6 : 0 }}>
