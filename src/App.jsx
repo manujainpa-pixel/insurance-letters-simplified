@@ -149,6 +149,11 @@ const defaultForm = {
   pfmlOffsetStd: "no",
   pfmlClaimFiled: "yes",
   pfmlConcurrencyNote: "",
+
+  // ── CUSTOM LETTER TEXT ──
+  customOpening: "",
+  customMidNote: "",
+  customClosing: "",
 };
 
 // ─── SMALL UI HELPERS ─────────────────────────────────────────────────────────
@@ -331,6 +336,9 @@ function GeneratedLetter({ f }) {
 
       {/* ── SALUTATION ── */}
       <p style={body}>Dear {firstName},</p>
+      {f.customOpening && (
+        <p style={{ ...body, fontStyle: "italic" }}>{f.customOpening}</p>
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════
           PART A — ELIGIBILITY NOTICE
@@ -408,6 +416,11 @@ function GeneratedLetter({ f }) {
             If you believe this determination is incorrect or if your circumstances change, please contact us at the number above.
           </p>
         </>)}
+
+        {/* Medical certification */}
+        {f.customMidNote && (
+          <><hr style={rule} /><p style={{ ...body, fontStyle: "italic" }}>{f.customMidNote}</p></>
+        )}
 
         {/* Medical certification */}
         {f.medCertRequired === "yes" && (<>
@@ -554,6 +567,11 @@ function GeneratedLetter({ f }) {
           }
         </div>
       </>}
+
+      {/* ── CUSTOM CLOSING ── */}
+      {f.customClosing && (
+        <><hr style={rule} /><p style={{ ...body, fontStyle: "italic" }}>{f.customClosing}</p></>
+      )}
 
       {/* ── REQUIRED ATTACHMENTS ── */}
       {(() => {
@@ -1815,6 +1833,56 @@ function InputForm({ form, setForm, onGenerate }) {
         </>
       )}
 
+      {/* ── CUSTOM LETTER CONTENT ── */}
+      <SectionHead icon="✏️" title="Custom Letter Content" subtitle="Optional — each zone appears in the generated claimant letter. Blank zones are omitted." />
+
+      {[
+        { key: "customOpening", label: "Zone 1 — Opening note", hint: "Appears after 'Dear [Name],' before the standard eligibility text. Good for empathy language or context from a prior conversation.", placeholder: "e.g. We appreciate you reaching out and hope you are feeling better. Our team is here to support you." },
+        { key: "customMidNote", label: "Zone 2 — Mid-letter note", hint: "Appears after the designation section, before medical certification. Good for case-specific instructions or coordination details.", placeholder: "e.g. Please coordinate your return directly with your manager, Jennifer Walsh, at jwalsh@acmemfg.com." },
+        { key: "customClosing", label: "Zone 3 — Closing note", hint: "Appears before the signature, after your obligations. Good for EAP referrals, benefit programs, or additional employer-specific notes.", placeholder: "e.g. Our Employee Assistance Program (EAP) offers free confidential support at 1-800-555-EAP7, available 24/7." },
+      ].map(zone => (
+        <div key={zone.key} style={{ marginBottom: 18, background: BBGL, border: `1px solid ${BBDR}`, borderRadius: 8, padding: "14px 16px" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: BLUE, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4, fontFamily: ff }}>{zone.label}</div>
+          <div style={{ fontSize: 11, color: G600, marginBottom: 8, fontFamily: ff }}>{zone.hint}</div>
+          <textarea
+            value={f[zone.key]}
+            onChange={e => set(zone.key)(e.target.value)}
+            placeholder={zone.placeholder}
+            rows={3}
+            style={{ width: "100%", border: `1px solid ${BBDR}`, borderRadius: 6, padding: "8px 10px", fontSize: 13, fontFamily: ff, resize: "vertical", color: G900, background: "white", lineHeight: 1.55, boxSizing: "border-box" }}
+          />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+            <button
+              onClick={async () => {
+                const prompts = {
+                  customOpening: `Write a warm, brief 1-2 sentence opening paragraph for an FMLA leave letter addressed to ${f.employeeName || "the employee"} at ${f.employerName || "the employer"}. The leave is for: ${f.qualifyingReason}. Keep it human, compassionate, and professional. No legal language. Return only the paragraph text.`,
+                  customMidNote: `Write a brief, practical mid-letter note for an FMLA letter for ${f.employeeName || "the employee"} (${f.position || "employee"}, ${f.department || "department"}) at ${f.employerName || "the employer"}. HR contact is ${f.hrContactName || "HR"} at ${f.hrEmail || f.hrPhone || "HR contact"}. The note should help the employee coordinate their return. 1-2 sentences, plain language. Return only the text.`,
+                  customClosing: `Write a brief, warm closing note for an FMLA leave letter for ${f.employeeName || "the employee"} at ${f.employerName || "the employer"}. Mention their wellbeing and encourage them to reach out. 1-2 sentences. If an EAP or support program is relevant, reference it generically. Plain language, no legal terms. Return only the text.`,
+                };
+                const currentKey = zone.key;
+                set(currentKey)("Drafting…");
+                try {
+                  const res = await fetch("https://api.anthropic.com/v1/messages", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY || "", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+                    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 200, messages: [{ role: "user", content: prompts[currentKey] }] }),
+                  });
+                  const data = await res.json();
+                  set(currentKey)(data.content?.[0]?.text?.trim() || "");
+                } catch { set(currentKey)(""); }
+              }}
+              style={{ fontSize: 11, padding: "4px 12px", borderRadius: 6, border: `1px solid ${BBDR}`, background: "white", color: BLUE, cursor: "pointer", fontFamily: ff, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
+            >
+              ✨ Draft with AI
+            </button>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span style={{ fontSize: 11, color: G400, fontFamily: ff }}>{(f[zone.key] || "").length} chars</span>
+              {f[zone.key] && <button onClick={() => set(zone.key)("")} style={{ fontSize: 11, color: G400, background: "none", border: "none", cursor: "pointer", fontFamily: ff }}>Clear</button>}
+            </div>
+          </div>
+        </div>
+      ))}
+
       {/* Generate button */}
       <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}>
         <button onClick={onGenerate} disabled={!isValid}
@@ -1916,6 +1984,11 @@ function csvToForm(claim, agentFields = {}) {
     pfmlClaimNumber:       claim.pfml_claim_number || "",
     pfmlProgram:           claim.pfml_program      || "",
     pfmlWeeklyBenefit:     claim.pfml_weekly_benefit || "",
+
+    // custom text — start blank; operator fills in form
+    customOpening: "",
+    customMidNote: "",
+    customClosing: "",
   };
 }
 
@@ -2502,8 +2575,38 @@ export default function App() {
           </div>
         ) : (
           <>
+            {/* Letter action bar */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ display: "flex", gap: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: scopeBgColor[form.noticeScope] || NAV, color: "white" }}>{scopeLabel[form.noticeScope]}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: ltypeBgColor[form.letterType] || NAV, color: "white" }}>{ltypeLabel[form.letterType]}</span>
+              </div>
+              <button
+                onClick={() => {
+                  const content = document.getElementById("letter-print-area")?.innerHTML;
+                  if (!content) return;
+                  const win = window.open("", "_blank");
+                  win.document.write(`<!DOCTYPE html><html><head><title>FMLA Letter - ${form.claimNumber}</title><style>
+                    *{box-sizing:border-box;margin:0;padding:0}
+                    body{font-family:Georgia,serif;font-size:13.5px;color:#1a1a1a;line-height:1.8;padding:48px;max-width:720px;margin:0 auto}
+                    h1,h2,h3{font-weight:700}
+                    a{color:#1a1a1a}
+                    hr{border:none;border-top:1px solid #ddd;margin:20px 0}
+                    strong{font-weight:700}
+                    @media print{body{padding:24px}@page{margin:20mm}}
+                  </style></head><body>${content}</body></html>`);
+                  win.document.close();
+                  setTimeout(() => { win.focus(); win.print(); }, 400);
+                }}
+                style={{ padding: "8px 18px", background: NAV, color: "white", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: ff, display: "flex", alignItems: "center", gap: 6 }}
+              >
+                ⬇ Download PDF
+              </button>
+            </div>
             <div style={{ background: "white", borderRadius: 10, padding: "36px 40px", boxShadow: "0 4px 24px rgba(0,0,0,0.12)" }}>
-              <GeneratedLetter f={form} />
+              <div id="letter-print-area">
+                <GeneratedLetter f={form} />
+              </div>
             </div>
             <div style={{ marginTop: 20 }}>
               <ComplianceReport f={form} />
