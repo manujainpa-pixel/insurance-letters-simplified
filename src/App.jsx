@@ -1447,17 +1447,21 @@ function InputForm({ form, setForm, onGenerate }) {
         <Input label="FMLA Weeks Used This Leave Year" value={f.fmlaUsedWeeks} onChange={set("fmlaUsedWeeks")} type="number" />
       </Grid>
 
-      {/* ── DESIGNATION ── */}
-      <SectionHead icon="🏷️" title="Designation Decision" />
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Designate as FMLA Leave?</div>
-        <div style={{ display: "flex", gap: 24 }}>
-          <Radio label="Yes — Designated" value="yes" current={f.isDesignated} onChange={set("isDesignated")} />
-          <Radio label="No — Not Designated" value="no" current={f.isDesignated} onChange={set("isDesignated")} />
-        </div>
-      </div>
-      {f.isDesignated === "no" && <Input label="Reason Leave Not Designated" value={f.nonDesignationReason} onChange={set("nonDesignationReason")} placeholder="Leave does not qualify as a serious health condition..." />}
-      <Input label="Weeks Counted Against FMLA Entitlement" value={f.weeksCountedFmla} onChange={set("weeksCountedFmla")} type="number" hint="For intermittent leave, enter equivalent hours in the letter narrative" />
+      {/* ── DESIGNATION — only when DN or combined ── */}
+      {(f.noticeScope === "dn" || f.noticeScope === "combined") && (
+        <>
+          <SectionHead icon="🏷️" title="Designation Decision" subtitle="Required for DN and combined EN+DN — not needed for EN-only letters" />
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Designate as FMLA Leave?</div>
+            <div style={{ display: "flex", gap: 24 }}>
+              <Radio label="Yes — Designated" value="yes" current={f.isDesignated} onChange={set("isDesignated")} />
+              <Radio label="No — Not Designated" value="no" current={f.isDesignated} onChange={set("isDesignated")} />
+            </div>
+          </div>
+          {f.isDesignated === "no" && <Input label="Reason Leave Not Designated" value={f.nonDesignationReason} onChange={set("nonDesignationReason")} placeholder="Leave does not qualify as a serious health condition..." />}
+          <Input label="Weeks Counted Against FMLA Entitlement" value={f.weeksCountedFmla} onChange={set("weeksCountedFmla")} type="number" hint="For intermittent leave, enter equivalent hours in the letter narrative" />
+        </>
+      )}
 
       {/* ── MED CERT ── */}
       <SectionHead icon="🩺" title="Medical Certification" />
