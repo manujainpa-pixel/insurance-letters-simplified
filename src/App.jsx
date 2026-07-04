@@ -1,4 +1,4 @@
-import { useState } from "react";
+\import { useState } from "react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const NAV = "#1B3A6B";
@@ -706,6 +706,13 @@ function ComplianceReport({ f }) {
 
   // ── Build checklist items ──────────────────────────────────────────────────
   const groups = [];
+  const isSTDl  = f.letterType === "std";
+  const isPFMLl = f.letterType === "pfml";
+  const isFMLAl = f.letterType === "fmla";
+
+  // Header showing which groups apply to this configuration
+  const scopeDesc = scope === "en" ? "EN Only" : scope === "dn" ? "DN Only" : "EN + DN Combined";
+  const typeDesc  = isSTDl ? "FMLA + STD" : isPFMLl ? "FMLA + PFML" : "Standalone FMLA";
 
   // ── GROUP 1: Timeliness ───────────────────────────────────────────────────
   const timeItems = [];
@@ -871,7 +878,7 @@ function ComplianceReport({ f }) {
       detail: `PTO restriction notice ${f.stdNotePtoRestriction ? "included" : "not included"} in STD addendum · STD benefit is not unpaid leave — FMLA concurrent PTO requirement does not apply`,
       warn: !f.stdNotePtoRestriction ? "Consider including PTO restriction notice in STD addendum" : null,
     });
-    groups.push({ title: "Benefits & Reinstatement (§825.209–214)", icon: "🏥", items: benItems });
+    if(showDN) groups.push({ title: "Benefits & Reinstatement (§825.209–214)", icon: "🏥", items: benItems });
   }
 
   // ── GROUP 6: State-Specific ───────────────────────────────────────────────
@@ -1039,7 +1046,7 @@ function ComplianceReport({ f }) {
       detail: "If employer disputes certification: (1) notify employee in writing, (2) employer designates and pays for second opinion, (3) third opinion is binding. Employee may work until process completes.",
       operatorNote: "Operator action item: if cert is questioned, initiate second opinion within 5 days and document the decision — do not deny leave pending opinion.",
     });
-    groups.push({ title: "Employer Designation Obligations", icon: "📌", items: eoItems });
+    if(showDN) groups.push({ title: "Employer Designation Obligations", icon: "📌", items: eoItems });
   }
 
   // ── GROUP 9: Anti-Retaliation & Non-Interference ─────────────────────────
@@ -1144,7 +1151,7 @@ function ComplianceReport({ f }) {
       detail: `${f.letterType === "std" ? "STD + FMLA running concurrently confirmed · " : ""}ADA interactive process may be required independently · Workers' comp leave may also trigger FMLA if condition qualifies as serious health condition`,
       operatorNote: "Concurrent leaves are the norm, not the exception. Document each law's obligations separately — FMLA exhaustion does not end ADA or workers' comp obligations.",
     });
-    groups.push({ title: "ADA / ADAAA & Concurrent Law Interaction", icon: "🔗", items: adaItems });
+    if(showDN) groups.push({ title: "ADA / ADAAA & Concurrent Law Interaction", icon: "🔗", items: adaItems });
   }
 
   // ── GROUP 12: Recordkeeping & Audit Trail ────────────────────────────────
@@ -1414,6 +1421,14 @@ function ComplianceReport({ f }) {
             <div style={{ color: "#93C5FD", fontSize: 12, marginTop: 3 }}>
               {total} requirement checks across {groups.length} categories · {warnCount} warning{warnCount !== 1 ? "s" : ""} · {failCount} failure{failCount !== 1 ? "s" : ""}
             </div>
+            <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 99, background: scope==="en"?"#0D6B3B":scope==="dn"?"#7C2D12":NAV, color:"white" }}>{scopeDesc}</span>
+              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 99, background: isSTDl?"#7C2D12":isPFMLl?"#0D6B3B":"rgba(255,255,255,0.15)", color:"white" }}>{typeDesc}</span>
+              {stateCode && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 99, background: "rgba(255,255,255,0.15)", color:"white" }}>{stateCode} State Overlay</span>}
+              <span style={{ fontSize: 10, color: "#93C5FD", padding: "2px 9px" }}>
+                {groups.length} of 14 groups apply to this configuration
+              </span>
+            </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <div style={{ background: scoreBg, borderRadius: 8, padding: "8px 14px", textAlign: "center" }}>
@@ -1604,284 +1619,355 @@ function InputForm({ form, setForm, onGenerate }) {
         </div>
       </div>
 
-      {/* ── EMPLOYER & ADMIN ── */}
-      <SectionHead icon="🏢" title="Employer & Leave Administrator" subtitle="Employer HR contact and TPA details" />
-      <Grid>
-        <Input label="Employer Legal Name" value={f.employerName} onChange={set("employerName")} required placeholder="Acme Manufacturing Co." />
-        <Input label="Worksite Employee Count (75-mi radius)" value={f.worksiteHeadcount} onChange={set("worksiteHeadcount")} type="number" hint="Federal FMLA: ≥50 required; ME state: ≥15 private employer" />
-        <Input label="HR Contact Name" value={f.hrContactName} onChange={set("hrContactName")} placeholder="Jennifer Walsh" />
-        <Input label="HR Title" value={f.hrTitle} onChange={set("hrTitle")} placeholder="HR Business Partner" />
-        <Input label="HR Phone" value={f.hrPhone} onChange={set("hrPhone")} placeholder="(215) 555-0100" />
-        <Input label="HR Email" value={f.hrEmail} onChange={set("hrEmail")} placeholder="jwalsh@employer.com" />
-        <Input label="Worksite Address" value={f.worksiteAddress} onChange={set("worksiteAddress")} placeholder="1200 Commerce Drive, Horsham, PA 19044" />
-        <Select label="FMLA Leave Year Method" value={f.leaveYearMethod} onChange={set("leaveYearMethod")} options={LEAVE_YEAR_METHODS} />
-      </Grid>
-      <Grid>
-        <Input label="Leave Administrator / TPA Name" value={f.adminName} onChange={set("adminName")} placeholder="Meridian Absence Solutions" />
-        <Input label="Administrator Phone" value={f.adminPhone} onChange={set("adminPhone")} placeholder="1-800-555-0199" />
-        <Input label="Administrator Claims Email" value={f.adminEmail} onChange={set("adminEmail")} placeholder="fmla@admin.com" />
-        <Input label="Letter ID" value={f.letterId} onChange={set("letterId")} hint="Auto-generated — edit if needed" />
-      </Grid>
+      {/* ── DYNAMIC FORM BODY ── */}
+      {(() => {
+        const isSTD  = f.letterType === "std";
+        const isPFML = f.letterType === "pfml";
+        const showEN = f.noticeScope === "en"  || f.noticeScope === "combined";
+        const showDN = f.noticeScope === "dn"  || f.noticeScope === "combined";
+        const isME   = (f.stateOfEmployment || "").includes("ME");
+        const isTN   = (f.stateOfEmployment || "").includes("TN");
+        const isInt  = f.leaveType !== "Continuous";
+        const isBond = (f.qualifyingReason || "").includes("Birth") || (f.qualifyingReason || "").includes("Adoption") || (f.qualifyingReason || "").includes("bonding");
+        const fn     = (f.employeeName || "the employee").split(" ")[0];
 
-      {/* ── EMPLOYEE ── */}
-      <SectionHead icon="👤" title="Employee" subtitle="Demographics, eligibility inputs, and state of employment" />
-      <Grid>
-        <Input label="Employee Full Name" value={f.employeeName} onChange={set("employeeName")} required placeholder="Sarah J. Thompson" />
-        <Input label="Employee ID" value={f.employeeId} onChange={set("employeeId")} placeholder="EMP-48821" />
-        <Input label="Position / Title" value={f.position} onChange={set("position")} placeholder="Senior Operations Analyst" />
-        <Input label="Department" value={f.department} onChange={set("department")} placeholder="Supply Chain" />
-        <Input label="Home Address" value={f.employeeAddress} onChange={set("employeeAddress")} placeholder="442 Oak Hill Rd, Blue Bell, PA 19422" />
-        <Input label="Hire Date" value={f.hireDate} onChange={set("hireDate")} type="date" />
-        <Input label="Hours Worked in Preceding 12 Months" value={f.hoursLast12Mo} onChange={set("hoursLast12Mo")} type="number" hint="Federal FMLA: ≥1,250 required (ME state FMLA waives this)" />
-        <Input label="Months Employed" value={f.monthsEmployed} onChange={set("monthsEmployed")} type="number" hint="≥12 months required; ME requires consecutive months" />
-        <Select label="State of Employment" value={f.stateOfEmployment} onChange={set("stateOfEmployment")} options={STATES} hint="Drives state overlay clauses in the generated letter" />
-        <Input label="FMLA Leave Year Start Date" value={f.leaveYearStart} onChange={set("leaveYearStart")} type="date" />
-      </Grid>
-      {f.stateOfEmployment.includes("ME") && (
-        <Callout color={BLUE} bg={BBGL} border={BBDR}>
-          <strong>Maine State Overlay Active.</strong> Fields below will populate both ME FMLA (10 wks/2-yr rolling) and Maine PFML sections in the letter.
-          Maine FMLA eligibility: 12 consecutive months employed; private employers with 15+ employees; 900-hr rule for school employees; broader family definitions (siblings, domestic partners).
-        </Callout>
-      )}
-      {f.stateOfEmployment.includes("ME") && (
-        <Grid>
-          <Input label="ME FMLA Weeks Used (2-Year Window)" value={f.maineUsedWeeks} onChange={set("maineUsedWeeks")} type="number" hint="Tracked separately from federal 12-month year" />
-          <Input label="ME Benefit Year Start Date" value={f.maineBenefitYearStart} onChange={set("maineBenefitYearStart")} type="date" />
-        </Grid>
-      )}
+        // Progress indicator — shows which sections are active
+        const activeSections = [
+          "Employer & Admin",
+          "Employee",
+          "Leave Request",
+          showEN && "Eligibility",
+          showDN && "Designation",
+          showDN && "Med Cert",
+          showDN && "Requirements",
+          isSTD  && "STD Details",
+          isPFML && "PFML Details",
+          "Custom Content",
+        ].filter(Boolean);
 
-      {/* ── LEAVE REQUEST ── */}
-      <SectionHead icon="📋" title="Leave Request" subtitle="Details of the absence request that triggered this notice" />
-      <Grid>
-        <Input label="Date Notice of Need for Leave Received" value={f.noticeReceived} onChange={set("noticeReceived")} type="date" required hint="Starts 5-business-day EN clock" />
-        <Input label="Claim Number" value={f.claimNumber} onChange={set("claimNumber")} />
-        <Input label="Estimated Leave Start Date" value={f.leaveStart} onChange={set("leaveStart")} type="date" required />
-        <Input label="Estimated Leave End Date" value={f.leaveEnd} onChange={set("leaveEnd")} type="date" />
-      </Grid>
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Leave Type</div>
-        <div style={{ display: "flex", gap: 24 }}>
-          {["Continuous", "Intermittent", "Reduced Schedule"].map(t => <Radio key={t} label={t} value={t} current={f.leaveType} onChange={set("leaveType")} />)}
-        </div>
-      </div>
-      {f.leaveType !== "Continuous" && (
-        <Input label="Intermittent / Reduced Schedule Pattern" value={f.intermittentFrequency} onChange={set("intermittentFrequency")} placeholder="e.g., 2 days/week, Tuesdays and Thursdays, 4-hour shifts" hint="Describe frequency and duration of expected episodes" />
-      )}
-      <Select label="Qualifying Reason" value={f.qualifyingReason} onChange={set("qualifyingReason")} options={QUALIFYING_REASONS} />
-      {f.qualifyingReason.includes("family member") && (
-        <Input label="Family Member Relationship" value={f.familyMemberRelationship} onChange={set("familyMemberRelationship")} placeholder="Spouse, child, parent..." hint={f.stateOfEmployment.includes("ME") ? "Maine FMLA also covers siblings who live with employee and domestic partners" : "Federal FMLA covers spouse, child, parent"} />
-      )}
+        return (<>
 
-      {/* ── ELIGIBILITY ── */}
-      <SectionHead icon="✅" title="Eligibility Determination" subtitle="Pass/fail on each eligibility test — auto-determines from employee data above" />
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Federal FMLA Eligibility Decision</div>
-        <div style={{ display: "flex", gap: 24 }}>
-          <Radio label="Eligible" value="yes" current={f.fmlaEligible} onChange={set("fmlaEligible")} />
-          <Radio label="Not Eligible" value="no" current={f.fmlaEligible} onChange={set("fmlaEligible")} />
-        </div>
-      </div>
-      {f.fmlaEligible === "no" && (
-        <div style={{ background: RBGL, border: `1px solid ${RBDR}`, borderRadius: 6, padding: "12px 16px", marginBottom: 14 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: RED, marginBottom: 8 }}>Check all applicable ineligibility reasons:</div>
-          <Toggle label="< 12 months employed" checked={f.ineligMonths} onChange={setChk("ineligMonths")} />
-          <Toggle label="< 1,250 hours in preceding 12 months" checked={f.ineligHours} onChange={setChk("ineligHours")} />
-          <Toggle label="Worksite < 50 employees within 75 miles" checked={f.ineligSize} onChange={setChk("ineligSize")} />
-        </div>
-      )}
-      <Grid>
-        <Input label="Total FMLA Entitlement (weeks)" value={f.fmlaEntitlementWeeks} onChange={set("fmlaEntitlementWeeks")} type="number" hint="12 weeks standard; 26 for military caregiver" />
-        <Input label="FMLA Weeks Used This Leave Year" value={f.fmlaUsedWeeks} onChange={set("fmlaUsedWeeks")} type="number" />
-      </Grid>
+          {/* Section breadcrumb */}
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 20, padding: "10px 14px", background: G50, borderRadius: 8, border: `1px solid ${G200}` }}>
+            {activeSections.map((s, i) => (
+              <div key={s} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 11, color: NAV, fontWeight: 600, fontFamily: ff }}>{s}</span>
+                {i < activeSections.length - 1 && <span style={{ fontSize: 11, color: G400 }}>›</span>}
+              </div>
+            ))}
+          </div>
 
-      {/* ── DESIGNATION — only when DN or combined ── */}
-      {(f.noticeScope === "dn" || f.noticeScope === "combined") && (
-        <>
-          <SectionHead icon="🏷️" title="Designation Decision" subtitle="Required for DN and combined EN+DN — not needed for EN-only letters" />
+          {/* ═══ 1. EMPLOYER & ADMIN — always ═══ */}
+          <SectionHead icon="🏢" title="Employer & Leave Administrator" subtitle="Required for all letter types" />
+          <Grid>
+            <Input label="Employer Legal Name" value={f.employerName} onChange={set("employerName")} required placeholder="Acme Manufacturing Co." />
+            <Input label="Worksite Employee Count (75-mi radius)" value={f.worksiteHeadcount} onChange={set("worksiteHeadcount")} type="number"
+              hint={isTN && isBond ? "TN Parental Leave Act: ≥100 employees · Federal FMLA: ≥50" : isME ? "Federal FMLA: ≥50 · Maine state: ≥15 private employer" : "Federal FMLA: ≥50 within 75 miles"} />
+            <Input label="HR Contact Name" value={f.hrContactName} onChange={set("hrContactName")} placeholder="Jennifer Walsh" />
+            <Input label="HR Title" value={f.hrTitle} onChange={set("hrTitle")} placeholder="HR Business Partner" />
+            <Input label="HR Phone" value={f.hrPhone} onChange={set("hrPhone")} placeholder="(215) 555-0100" />
+            <Input label="HR Email" value={f.hrEmail} onChange={set("hrEmail")} placeholder="jwalsh@employer.com" />
+            <Input label="Leave Administrator / TPA Name" value={f.adminName} onChange={set("adminName")} placeholder="Meridian Absence Solutions" />
+            <Input label="Administrator Phone" value={f.adminPhone} onChange={set("adminPhone")} placeholder="1-800-555-0199" />
+            <Input label="Administrator Email" value={f.adminEmail} onChange={set("adminEmail")} placeholder="fmla@admin.com" />
+            <Select label="FMLA Leave Year Method" value={f.leaveYearMethod} onChange={set("leaveYearMethod")} options={LEAVE_YEAR_METHODS} />
+            <Input label="Worksite Address" value={f.worksiteAddress} onChange={set("worksiteAddress")} placeholder="1200 Commerce Drive, Horsham, PA" />
+            <Input label="Letter ID" value={f.letterId} onChange={set("letterId")} hint="Auto-generated" />
+          </Grid>
+
+          {/* ═══ 2. EMPLOYEE — always ═══ */}
+          <SectionHead icon="👤" title="Employee" subtitle="Required for all letter types" />
+          <Grid>
+            <Input label="Employee Full Name" value={f.employeeName} onChange={set("employeeName")} required placeholder="Sarah J. Thompson" />
+            <Input label="Employee ID" value={f.employeeId} onChange={set("employeeId")} placeholder="EMP-48821" />
+            <Input label="Position / Title" value={f.position} onChange={set("position")} placeholder="Senior Operations Analyst" />
+            <Input label="Department" value={f.department} onChange={set("department")} placeholder="Supply Chain" />
+            <Input label="Home Address" value={f.employeeAddress} onChange={set("employeeAddress")} placeholder="442 Oak Hill Rd, Blue Bell, PA" />
+            <Input label="Hire Date" value={f.hireDate} onChange={set("hireDate")} type="date" />
+            <Input label="Hours Worked — Preceding 12 Months" value={f.hoursLast12Mo} onChange={set("hoursLast12Mo")} type="number"
+              hint={isME ? "Federal FMLA: ≥1,250 · Maine state FMLA waives the hours test" : "Federal FMLA: ≥1,250 hours required"} />
+            <Input label="Months Employed" value={f.monthsEmployed} onChange={set("monthsEmployed")} type="number"
+              hint={isME ? "Maine requires ≥12 consecutive months" : "≥12 months required (need not be consecutive)"} />
+            <Select label="State of Employment" value={f.stateOfEmployment} onChange={set("stateOfEmployment")} options={STATES} hint="Drives state overlay sections in the letter" />
+            <Input label="FMLA Leave Year Start Date" value={f.leaveYearStart} onChange={set("leaveYearStart")} type="date" />
+          </Grid>
+          {isME && (<>
+            <Callout color={BLUE} bg={BBGL} border={BBDR}>
+              <strong>Maine overlay active.</strong> Maine FMLA (10 wks/2-yr rolling) applies alongside federal FMLA. No hours test. Broader family: siblings who live with employee, domestic partners.
+            </Callout>
+            <Grid>
+              <Input label="ME FMLA Weeks Used (2-Year Window)" value={f.maineUsedWeeks} onChange={set("maineUsedWeeks")} type="number" hint="Tracked separately from the federal 12-month leave year" />
+              <Input label="ME Benefit Year Start Date" value={f.maineBenefitYearStart} onChange={set("maineBenefitYearStart")} type="date" />
+            </Grid>
+          </>)}
+          {isTN && isBond && (
+            <Callout color={AMBER} bg={ABGL} border={ABDR}>
+              <strong>Tennessee Parental Leave Act may apply.</strong> Requires ≥100 full-time employees at the worksite. Provides up to 4 months concurrent with FMLA (not in addition to it). Employee must give 3 months' advance notice where foreseeable.
+            </Callout>
+          )}
+
+          {/* ═══ 3. LEAVE REQUEST — always ═══ */}
+          <SectionHead icon="📋" title="Leave Request" subtitle="Required for all letter types" />
+          <Grid>
+            <Input label="Date Notice Received" value={f.noticeReceived} onChange={set("noticeReceived")} type="date" required hint="Starts the 5-business-day EN clock" />
+            <Input label="Claim Number" value={f.claimNumber} onChange={set("claimNumber")} />
+            <Input label="Leave Start Date" value={f.leaveStart} onChange={set("leaveStart")} type="date" required />
+            <Input label="Leave End Date" value={f.leaveEnd} onChange={set("leaveEnd")} type="date" />
+          </Grid>
           <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Designate as FMLA Leave?</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Leave Type</div>
             <div style={{ display: "flex", gap: 24 }}>
-              <Radio label="Yes — Designated" value="yes" current={f.isDesignated} onChange={set("isDesignated")} />
-              <Radio label="No — Not Designated" value="no" current={f.isDesignated} onChange={set("isDesignated")} />
+              {["Continuous", "Intermittent", "Reduced Schedule"].map(t => <Radio key={t} label={t} value={t} current={f.leaveType} onChange={set("leaveType")} />)}
             </div>
           </div>
-          {f.isDesignated === "no" && <Input label="Reason Leave Not Designated" value={f.nonDesignationReason} onChange={set("nonDesignationReason")} placeholder="Leave does not qualify as a serious health condition..." />}
-          <Input label="Weeks Counted Against FMLA Entitlement" value={f.weeksCountedFmla} onChange={set("weeksCountedFmla")} type="number" hint="For intermittent leave, enter equivalent hours in the letter narrative" />
-        </>
-      )}
+          {isInt && <Input label="Intermittent / Reduced Schedule Pattern" value={f.intermittentFrequency} onChange={set("intermittentFrequency")} placeholder="e.g. 2 days/week, Tuesdays and Thursdays" hint="Describe frequency and duration of expected episodes" />}
+          <Select label="Qualifying Reason" value={f.qualifyingReason} onChange={set("qualifyingReason")} options={QUALIFYING_REASONS} />
+          {(f.qualifyingReason || "").includes("family member") && (
+            <Input label="Family Member Relationship" value={f.familyMemberRelationship} onChange={set("familyMemberRelationship")} placeholder="Spouse, child, parent..."
+              hint={isME ? "Maine FMLA also covers siblings who live with employee and domestic partners" : "Federal FMLA: spouse, child, parent"} />
+          )}
 
-      {/* ── MED CERT ── */}
-      <SectionHead icon="🩺" title="Medical Certification" />
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Medical Certification Required?</div>
-        <div style={{ display: "flex", gap: 24 }}>
-          <Radio label="Yes" value="yes" current={f.medCertRequired} onChange={set("medCertRequired")} />
-          <Radio label="No" value="no" current={f.medCertRequired} onChange={set("medCertRequired")} />
-        </div>
-      </div>
-      {f.medCertRequired === "yes" && (
-        <Grid>
-          <Select label="Certification Status" value={f.medCertStatus} onChange={set("medCertStatus")} options={["Pending", "Received — Sufficient", "Received — Insufficient", "Overdue"]} />
-          <Input label="Certification Due Date" value={f.medCertDueDate} onChange={set("medCertDueDate")} type="date" hint="Default: 15 calendar days from notice date" />
-          <Input label="Certifying Provider Name" value={f.providerName} onChange={set("providerName")} placeholder="Dr. Marcus Chen, MD" />
-          <Input label="Provider Practice / Hospital" value={f.providerPractice} onChange={set("providerPractice")} placeholder="Jefferson Health Orthopedics" />
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Recertification Required?</div>
-            <div style={{ display: "flex", gap: 24 }}>
-              <Radio label="Yes" value="yes" current={f.recertRequired} onChange={set("recertRequired")} />
-              <Radio label="No" value="no" current={f.recertRequired} onChange={set("recertRequired")} />
-            </div>
-          </div>
-          {f.recertRequired === "yes" && <Input label="Recertification Due Date" value={f.recertDate} onChange={set("recertDate")} type="date" />}
-        </Grid>
-      )}
-
-      {/* ── REQUIREMENTS ── */}
-      <SectionHead icon="📌" title="Requirements & Return to Work" />
-      <Grid>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Concurrent Paid Leave Required?</div>
-          <div style={{ display: "flex", gap: 24, marginBottom: 10 }}>
-            <Radio label="Yes" value="yes" current={f.paidLeaveConcurrent} onChange={set("paidLeaveConcurrent")} />
-            <Radio label="No" value="no" current={f.paidLeaveConcurrent} onChange={set("paidLeaveConcurrent")} />
-          </div>
-          {f.paidLeaveConcurrent === "yes" && <Input label="Paid Leave Types" value={f.paidLeaveTypes} onChange={set("paidLeaveTypes")} placeholder="Accrued sick leave and PTO" hint={f.letterType === "std" ? "Note: PTO cannot be required during STD benefit period" : ""} />}
-        </div>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Fitness-for-Duty Cert Required to Return?</div>
-          <div style={{ display: "flex", gap: 24, marginBottom: 10 }}>
-            <Radio label="Yes" value="yes" current={f.fitForDutyRequired} onChange={set("fitForDutyRequired")} />
-            <Radio label="No" value="no" current={f.fitForDutyRequired} onChange={set("fitForDutyRequired")} />
-          </div>
-          {f.fitForDutyRequired === "yes" && (
-            <div style={{ marginTop: 6 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Must Address Essential Functions?</div>
+          {/* ═══ 4. ELIGIBILITY — EN and combined only ═══ */}
+          {showEN && (<>
+            <SectionHead icon="✅" title="Eligibility Determination"
+              subtitle={f.noticeScope === "dn" ? "" : f.noticeScope === "en" ? "EN only — no designation section" : "EN + DN combined"} />
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Federal FMLA Eligibility</div>
               <div style={{ display: "flex", gap: 24 }}>
-                <Radio label="Yes" value="yes" current={f.fitForDutyEssentialFunctions} onChange={set("fitForDutyEssentialFunctions")} />
-                <Radio label="No" value="no" current={f.fitForDutyEssentialFunctions} onChange={set("fitForDutyEssentialFunctions")} />
+                <Radio label="Eligible" value="yes" current={f.fmlaEligible} onChange={set("fmlaEligible")} />
+                <Radio label="Not Eligible" value="no" current={f.fmlaEligible} onChange={set("fmlaEligible")} />
+              </div>
+            </div>
+            {f.fmlaEligible === "no" && (
+              <div style={{ background: RBGL, border: `1px solid ${RBDR}`, borderRadius: 6, padding: "12px 16px", marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: RED, marginBottom: 8 }}>Check all applicable ineligibility reasons:</div>
+                <Toggle label="< 12 months employed" checked={f.ineligMonths} onChange={setChk("ineligMonths")} />
+                <Toggle label="< 1,250 hours in preceding 12 months" checked={f.ineligHours} onChange={setChk("ineligHours")} />
+                <Toggle label="Worksite < 50 employees within 75 miles" checked={f.ineligSize} onChange={setChk("ineligSize")} />
+              </div>
+            )}
+            <Grid>
+              <Input label="Total FMLA Entitlement (weeks)" value={f.fmlaEntitlementWeeks} onChange={set("fmlaEntitlementWeeks")} type="number" hint="12 weeks standard · 26 for military caregiver" />
+              <Input label="FMLA Weeks Used This Leave Year" value={f.fmlaUsedWeeks} onChange={set("fmlaUsedWeeks")} type="number" />
+            </Grid>
+          </>)}
+
+          {/* ═══ 5. DESIGNATION — DN and combined only ═══ */}
+          {showDN && (<>
+            <SectionHead icon="🏷️" title="Designation Decision" subtitle="DN and combined EN+DN only — not shown for EN-only letters" />
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Designate as FMLA Leave?</div>
+              <div style={{ display: "flex", gap: 24 }}>
+                <Radio label="Yes — Designated" value="yes" current={f.isDesignated} onChange={set("isDesignated")} />
+                <Radio label="No — Not Designated" value="no" current={f.isDesignated} onChange={set("isDesignated")} />
+              </div>
+            </div>
+            {f.isDesignated === "no" && <Input label="Reason Not Designated" value={f.nonDesignationReason} onChange={set("nonDesignationReason")} placeholder="Leave does not qualify as a serious health condition..." />}
+            <Input label="Weeks Counted Against FMLA Entitlement" value={f.weeksCountedFmla} onChange={set("weeksCountedFmla")} type="number"
+              hint={isInt ? "For intermittent leave, enter equivalent weeks based on hours used" : "Weeks this leave period will consume from entitlement"} />
+          </>)}
+
+          {/* ═══ 6. MED CERT — DN and combined only ═══ */}
+          {showDN && (<>
+            <SectionHead icon="🩺" title="Medical Certification" subtitle="DN and combined EN+DN only" />
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Certification Required?</div>
+              <div style={{ display: "flex", gap: 24 }}>
+                <Radio label="Yes" value="yes" current={f.medCertRequired} onChange={set("medCertRequired")} />
+                <Radio label="No" value="no" current={f.medCertRequired} onChange={set("medCertRequired")} />
+              </div>
+            </div>
+            {f.medCertRequired === "yes" && (
+              <Grid>
+                <Select label="Certification Status" value={f.medCertStatus} onChange={set("medCertStatus")} options={["Pending","Received — Sufficient","Received — Insufficient","Overdue"]} />
+                <Input label="Certification Due Date" value={f.medCertDueDate} onChange={set("medCertDueDate")} type="date" hint="15 calendar days from notice date" />
+                <Input label="Certifying Provider Name" value={f.providerName} onChange={set("providerName")} placeholder="Dr. Marcus Chen, MD" />
+                <Input label="Provider Practice / Hospital" value={f.providerPractice} onChange={set("providerPractice")} placeholder="Jefferson Health Orthopedics" />
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Recertification Required?</div>
+                  <div style={{ display: "flex", gap: 24 }}>
+                    <Radio label="Yes" value="yes" current={f.recertRequired} onChange={set("recertRequired")} />
+                    <Radio label="No" value="no" current={f.recertRequired} onChange={set("recertRequired")} />
+                  </div>
+                </div>
+                {f.recertRequired === "yes" && <Input label="Recertification Due Date" value={f.recertDate} onChange={set("recertDate")} type="date" />}
+              </Grid>
+            )}
+          </>)}
+
+          {/* ═══ 7. REQUIREMENTS & RETURN — DN and combined only ═══ */}
+          {showDN && (<>
+            <SectionHead icon="📌" title="Requirements & Return to Work" subtitle="DN and combined EN+DN only" />
+            <Grid>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+                  Concurrent Paid Leave Required?
+                  {isSTD && <div style={{ fontSize: 10, color: AMBER, marginTop: 2 }}>PTO cannot be required during STD benefit period</div>}
+                </div>
+                <div style={{ display: "flex", gap: 24, marginBottom: 10 }}>
+                  <Radio label="Yes" value="yes" current={f.paidLeaveConcurrent} onChange={set("paidLeaveConcurrent")} />
+                  <Radio label="No" value="no" current={f.paidLeaveConcurrent} onChange={set("paidLeaveConcurrent")} />
+                </div>
+                {f.paidLeaveConcurrent === "yes" && <Input label="Paid Leave Types" value={f.paidLeaveTypes} onChange={set("paidLeaveTypes")} placeholder="Accrued sick leave and PTO" />}
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Fitness-for-Duty Cert Required to Return?</div>
+                <div style={{ display: "flex", gap: 24, marginBottom: 10 }}>
+                  <Radio label="Yes" value="yes" current={f.fitForDutyRequired} onChange={set("fitForDutyRequired")} />
+                  <Radio label="No" value="no" current={f.fitForDutyRequired} onChange={set("fitForDutyRequired")} />
+                </div>
+                {f.fitForDutyRequired === "yes" && (<>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Must Address Essential Functions?</div>
+                  <div style={{ display: "flex", gap: 24 }}>
+                    <Radio label="Yes" value="yes" current={f.fitForDutyEssentialFunctions} onChange={set("fitForDutyEssentialFunctions")} />
+                    <Radio label="No" value="no" current={f.fitForDutyEssentialFunctions} onChange={set("fitForDutyEssentialFunctions")} />
+                  </div>
+                </>)}
+              </div>
+              <Input label="Anticipated Return-to-Work Date" value={f.anticipatedReturn} onChange={set("anticipatedReturn")} type="date" />
+              <Input label="Days Advance Notice Before Return" value={f.contactDaysBeforeReturn} onChange={set("contactDaysBeforeReturn")} type="number" />
+              <Input label="Employee Health Premium Share ($)" value={f.employeePremiumShare} onChange={set("employeePremiumShare")} placeholder="187.50 bi-weekly" hint="Required disclosure — 29 CFR §825.210(b)" />
+              <Select label="Premium Payment Method" value={f.premiumPaymentMethod} onChange={set("premiumPaymentMethod")} options={["Direct bill during leave","Payroll deduction resumes on return","Pre-payment arrangement","Employer absorbs during leave"]} />
+              <Select label="Delivery Method" value={f.deliveryMethod} onChange={set("deliveryMethod")} options={DELIVERY_METHODS} />
+            </Grid>
+          </>)}
+
+          {/* ═══ 8. STD DETAILS — FMLA+STD only ═══ */}
+          {isSTD && (
+            <div style={{ background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 8, padding: "0 16px 4px", marginBottom: 4 }}>
+              <SectionHead icon="🩹" title="Short-Term Disability Integration" subtitle="FMLA + STD letter only — not shown for Standalone FMLA or FMLA+PFML" />
+              <Grid>
+                <Input label="STD Carrier / Insurer" value={f.stdCarrierName} onChange={set("stdCarrierName")} placeholder="Principal Financial Group" />
+                <Input label="STD Plan Name" value={f.stdPlanName} onChange={set("stdPlanName")} placeholder="Employer STD Plan — Class 2" />
+                <Input label="STD Claim Number" value={f.stdClaimNumber} onChange={set("stdClaimNumber")} placeholder="STD-2026-004412" />
+                <Input label="Elimination / Waiting Period (days)" value={f.stdEliminationDays} onChange={set("stdEliminationDays")} type="number" hint="Common: 7 or 14 calendar days" />
+                <Input label="Approved Weekly STD Benefit ($)" value={f.stdWeeklyBenefit} onChange={set("stdWeeklyBenefit")} type="number" placeholder="1340.00" />
+                <Input label="Benefit % of Pre-Disability Salary" value={f.stdBenefitPct} onChange={set("stdBenefitPct")} type="number" placeholder="60" hint="Typically 50–70%" />
+                <Input label="Maximum STD Duration (weeks)" value={f.stdMaxDurationWeeks} onChange={set("stdMaxDurationWeeks")} type="number" hint="Common: 12 or 26 weeks" />
+                <Input label="STD Estimated Exhaustion Date" value={f.stdExhaustionDate} onChange={set("stdExhaustionDate")} type="date" />
+                <Input label="Offset Sources (if any)" value={f.stdOffsetSources} onChange={set("stdOffsetSources")} placeholder="SSDI, Workers' Comp, state DI..." hint="Dollar-for-dollar offsets reduce the STD benefit" />
+              </Grid>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Bridge to LTD on STD Exhaustion?</div>
+                <div style={{ display: "flex", gap: 24, marginBottom: 8 }}>
+                  <Radio label="Yes" value="yes" current={f.stdBridgeToLtd} onChange={set("stdBridgeToLtd")} />
+                  <Radio label="No" value="no" current={f.stdBridgeToLtd} onChange={set("stdBridgeToLtd")} />
+                </div>
+                {f.stdBridgeToLtd === "yes" && <Input label="LTD Claim Number (if already assigned)" value={f.ltdClaimNumber} onChange={set("ltdClaimNumber")} placeholder="LTD-2026-004412" />}
+              </div>
+              <Toggle label="Include PTO restriction notice — PTO cannot be required during STD benefit period" checked={f.stdNotePtoRestriction} onChange={setChk("stdNotePtoRestriction")} hint="Per DOL FMLA-2019-2-A: STD leave is not unpaid leave; concurrent PTO use cannot be required" />
+            </div>
+          )}
+
+          {/* ═══ 9. PFML DETAILS — FMLA+PFML only ═══ */}
+          {isPFML && (
+            <div style={{ background: "#F0FDF4", border: `1px solid ${GBDR}`, borderRadius: 8, padding: "0 16px 4px", marginBottom: 4 }}>
+              <SectionHead icon="💵" title="Paid Family & Medical Leave Integration" subtitle="FMLA + PFML letter only — not shown for Standalone FMLA or FMLA+STD" />
+              <Grid>
+                <Input label="PFML Program Name" value={f.pfmlProgram} onChange={set("pfmlProgram")} placeholder="Maine Paid Family & Medical Leave" hint="Full official program name" />
+                <Input label="PFML Administrator / Contact" value={f.pfmlAdminContact} onChange={set("pfmlAdminContact")} placeholder="Aflac (Maine PFML)" />
+                <Input label="PFML Claim Number" value={f.pfmlClaimNumber} onChange={set("pfmlClaimNumber")} placeholder="ME-PFML-2026-00441" />
+                <Input label="Waiting / Elimination Period (days)" value={f.pfmlWaitingDays} onChange={set("pfmlWaitingDays")} type="number" hint={isME ? "Maine: 7 days for own medical leave; 0 for bonding/care" : "Varies by state program"} />
+                <Input label="Estimated Weekly PFML Benefit ($)" value={f.pfmlWeeklyBenefit} onChange={set("pfmlWeeklyBenefit")} type="number" placeholder="680.00" />
+                <Input label="PFML Benefit % of Wages" value={f.pfmlBenefitPct} onChange={set("pfmlBenefitPct")} type="number" placeholder="60" hint="Varies by program and wage band" />
+                <Input label="PFML Weeks Available" value={f.pfmlWeeksAvailable} onChange={set("pfmlWeeksAvailable")} type="number" hint={isME ? "Maine: up to 12 weeks" : "Varies by state"} />
+                <Input label="PFML Weeks Used This Benefit Year" value={f.pfmlWeeksUsed} onChange={set("pfmlWeeksUsed")} type="number" />
+                <Select label="Primary Payer (if concurrent with STD)" value={f.pfmlPrimaryPayer} onChange={set("pfmlPrimaryPayer")} options={["PFML pays first","STD pays first","Employer plan coordinates — see plan terms"]} />
+              </Grid>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>PFML Claim Filed?</div>
+                <div style={{ display: "flex", gap: 24 }}>
+                  <Radio label="Yes" value="yes" current={f.pfmlClaimFiled} onChange={set("pfmlClaimFiled")} />
+                  <Radio label="No — Pending" value="no" current={f.pfmlClaimFiled} onChange={set("pfmlClaimFiled")} />
+                </div>
+              </div>
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>PFML Benefits Offset by Concurrent STD?</div>
+                <div style={{ display: "flex", gap: 24 }}>
+                  <Radio label="Yes (dollar-for-dollar)" value="yes" current={f.pfmlOffsetStd} onChange={set("pfmlOffsetStd")} />
+                  <Radio label="No offset" value="no" current={f.pfmlOffsetStd} onChange={set("pfmlOffsetStd")} />
+                </div>
               </div>
             </div>
           )}
-        </div>
-        <Input label="Anticipated Return-to-Work Date" value={f.anticipatedReturn} onChange={set("anticipatedReturn")} type="date" />
-        <Input label="Contact HR This Many Days Before Return" value={f.contactDaysBeforeReturn} onChange={set("contactDaysBeforeReturn")} type="number" />
-        <Input label="Employee Health Premium Share" value={f.employeePremiumShare} onChange={set("employeePremiumShare")} placeholder="187.50 (bi-weekly)" hint="Dollar amount — include frequency in placeholder" />
-        <Select label="Premium Payment Method During Leave" value={f.premiumPaymentMethod} onChange={set("premiumPaymentMethod")} options={["Direct bill during leave", "Payroll deduction resumes on return", "Pre-payment arrangement", "Employer absorbs during leave"]} />
-        <Select label="Delivery Method" value={f.deliveryMethod} onChange={set("deliveryMethod")} options={DELIVERY_METHODS} />
-      </Grid>
 
-      {/* ── STD ADDENDUM FIELDS ── */}
-      {f.letterType === "std" && (
-        <>
-          <div style={{ background: "#FFF7ED", border: `1px solid #FED7AA`, borderRadius: 8, padding: "0 16px 4px", marginBottom: 4 }}>
-            <SectionHead icon="🩹" title="STD Integration Fields" subtitle="Short-term disability benefit details — addendum to the FMLA letter" />
-            <Grid>
-              <Input label="STD Carrier / Insurer Name" value={f.stdCarrierName} onChange={set("stdCarrierName")} placeholder="Principal Financial Group" />
-              <Input label="STD Plan Name" value={f.stdPlanName} onChange={set("stdPlanName")} placeholder="Employer STD Plan — Class 2" />
-              <Input label="STD Claim Number" value={f.stdClaimNumber} onChange={set("stdClaimNumber")} placeholder="STD-2026-004412" />
-              <Input label="Elimination / Waiting Period (days)" value={f.stdEliminationDays} onChange={set("stdEliminationDays")} type="number" hint="Common: 7 or 14 calendar days" />
-              <Input label="Approved Weekly STD Benefit ($)" value={f.stdWeeklyBenefit} onChange={set("stdWeeklyBenefit")} type="number" placeholder="1340.00" />
-              <Input label="Benefit % of Pre-Disability Salary" value={f.stdBenefitPct} onChange={set("stdBenefitPct")} type="number" placeholder="60" hint="Typically 50–70%" />
-              <Input label="Maximum STD Duration (weeks)" value={f.stdMaxDurationWeeks} onChange={set("stdMaxDurationWeeks")} type="number" hint="Common: 12 or 26 weeks" />
-              <Input label="STD Estimated Exhaustion Date" value={f.stdExhaustionDate} onChange={set("stdExhaustionDate")} type="date" />
-              <Input label="Offset Sources (if any)" value={f.stdOffsetSources} onChange={set("stdOffsetSources")} placeholder="SSDI, Workers' Comp, state DI..." hint="Dollar-for-dollar offsets reduce the STD benefit" />
-            </Grid>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Bridge to LTD on Exhaustion?</div>
-              <div style={{ display: "flex", gap: 24, marginBottom: 8 }}>
-                <Radio label="Yes" value="yes" current={f.stdBridgeToLtd} onChange={set("stdBridgeToLtd")} />
-                <Radio label="No" value="no" current={f.stdBridgeToLtd} onChange={set("stdBridgeToLtd")} />
+          {/* ═══ 10. CUSTOM TEXT ZONES ═══ */}
+          <SectionHead icon="✏️" title="Custom Letter Content" subtitle="Optional — zones update based on letter type and scope. Blank zones omitted." />
+          {[
+            {
+              key: "customOpening", show: true,
+              label: "Zone 1 — Opening note",
+              context: isSTD ? "FMLA+STD" : isPFML ? "FMLA+PFML" : "Standalone FMLA",
+              hint: isBond ? "Congratulatory tone — appears after 'Dear [Name],' before eligibility text."
+                : isSTD ? "Empathy + STD benefit context — appears after 'Dear [Name],'"
+                : isPFML ? "Warm opening noting FMLA protection and paid leave — appears after 'Dear [Name],'"
+                : "Warm, supportive opening — appears after 'Dear [Name],' before eligibility text.",
+              placeholder: isBond ? "e.g. Congratulations on this exciting milestone. We wish you and your growing family all the best."
+                : "e.g. We appreciate you reaching out and hope you are feeling better. Our team is here to support you.",
+              prompt: `Write a warm 1-2 sentence opening for an FMLA ${isSTD?"+STD":isPFML?"+PFML":""} letter to ${fn} at ${f.employerName||"the employer"}. Reason: ${f.qualifyingReason}. ${isBond?"Celebratory tone.":isSTD?"Compassionate, mention STD benefit.":"Compassionate, supportive."} No legal language. Return only the text.`,
+            },
+            {
+              key: "customMidNote", show: showDN,
+              hiddenReason: "Only shown for DN or combined EN+DN letters (scope is currently EN only)",
+              label: "Zone 2 — Mid-letter note",
+              context: isSTD ? `FMLA+STD · ${f.noticeScope==="combined"?"EN+DN":"DN"}` : isPFML ? `FMLA+PFML · ${f.noticeScope==="combined"?"EN+DN":"DN"}` : f.noticeScope==="combined"?"EN+DN":"DN only",
+              hint: isSTD ? `STD coordination note — appears after designation. E.g. elimination period or ${f.stdCarrierName||"carrier"} contact.`
+                : isPFML ? `PFML filing reminder — appears after designation. Prompt employee to file ${f.pfmlProgram||"their PFML claim"} if not done.`
+                : "Case instructions — appears after designation. E.g. return coordination or manager contact.",
+              placeholder: isSTD ? `e.g. Your STD benefit begins after the ${f.stdEliminationDays||7}-day waiting period. Contact ${f.adminName||"us"} at ${f.adminPhone||"the number above"} for STD benefit questions.`
+                : isPFML ? `e.g. If you have not yet filed your ${f.pfmlProgram||"paid leave"} claim, please do so right away — both FMLA and PFML clocks run from your leave start date.`
+                : `e.g. Please coordinate your return with ${f.hrContactName||"HR"} at least ${f.contactDaysBeforeReturn||2} business days before you plan to come back.`,
+              prompt: `Write a 1-2 sentence mid-letter note for FMLA ${isSTD?"+STD":isPFML?"+PFML":""} for ${fn} at ${f.employerName||"the employer"}. ${isSTD?`STD: ${f.stdCarrierName||"carrier"}, ${f.stdEliminationDays||7}-day wait, $${f.stdWeeklyBenefit||"TBD"}/wk.`:isPFML?`PFML: ${f.pfmlProgram||"state program"} ${f.pfmlClaimNumber?`(${f.pfmlClaimNumber})`:"(pending)"}. Remind to file if not done.`:`HR: ${f.hrContactName||"HR"} at ${f.hrEmail||f.hrPhone||"HR contact"}.`} Plain language. Return only the text.`,
+            },
+            {
+              key: "customClosing", show: true,
+              label: "Zone 3 — Closing note",
+              context: isSTD ? "FMLA+STD" : isPFML ? "FMLA+PFML" : isBond ? "Parental leave" : isME ? "Maine overlay" : "Standalone FMLA",
+              hint: isSTD ? "STD closing — EAP referral, ADA awareness, or STD exhaustion note. Appears before signature."
+                : isBond ? "Parental closing — warm and celebratory. Good for parental support resources."
+                : isPFML ? "PFML closing — reinforce PFML program contact and support."
+                : "Supportive closing — EAP referral or employer support note. Appears before signature.",
+              placeholder: isSTD ? "e.g. Our EAP is available during your recovery — call 1-800-555-EAP7, 24/7, for free confidential support."
+                : isBond ? "e.g. We look forward to welcoming you back. Please reach out if there is anything we can do during your parental leave."
+                : "e.g. Our Employee Assistance Program offers free, confidential support to you and your household — available 24 hours a day at 1-800-555-EAP7.",
+              prompt: `Write a warm 1-2 sentence closing for FMLA ${isSTD?"+STD":isPFML?"+PFML":""} letter to ${fn} at ${f.employerName||"the employer"}. Reason: ${f.qualifyingReason}. ${isSTD?"Mention EAP and recovery.":isBond?"Celebratory parental tone.":isPFML?"Mention PFML program contact.":"Mention EAP and encourage reach-out."} 1-2 sentences, no legal terms. Return only the text.`,
+            },
+          ].map(zone => {
+            if (!zone.show) return (
+              <div key={zone.key} style={{ background: G100, border: `1px solid ${G200}`, borderRadius: 6, padding: "9px 14px", marginBottom: 10, fontSize: 12, color: G400, fontFamily: ff }}>
+                ⊘ <strong>{zone.label}</strong> — {zone.hiddenReason}
               </div>
-              {f.stdBridgeToLtd === "yes" && <Input label="LTD Claim Number (if already assigned)" value={f.ltdClaimNumber} onChange={set("ltdClaimNumber")} placeholder="LTD-2026-004412" />}
-            </div>
-            <Toggle label="Include PTO restriction notice (cannot require PTO during STD benefit period)" checked={f.stdNotePtoRestriction} onChange={setChk("stdNotePtoRestriction")} hint="Per DOL guidance: when leave is paid via disability insurance, employer cannot require concurrent PTO use" />
-          </div>
-        </>
-      )}
-
-      {/* ── PFML ADDENDUM FIELDS ── */}
-      {f.letterType === "pfml" && (
-        <>
-          <div style={{ background: "#F0FDF4", border: `1px solid ${GBDR}`, borderRadius: 8, padding: "0 16px 4px", marginBottom: 4 }}>
-            <SectionHead icon="💵" title="PFML Integration Fields" subtitle="State paid family & medical leave coordination — addendum to the FMLA letter" />
-            <Grid>
-              <Input label="PFML Program Name" value={f.pfmlProgram} onChange={set("pfmlProgram")} placeholder="Maine Paid Family & Medical Leave" hint="Full official program name" />
-              <Input label="PFML Administrator / Contact" value={f.pfmlAdminContact} onChange={set("pfmlAdminContact")} placeholder="Aflac (Maine PFML claims administrator)" />
-              <Input label="PFML Claim Number" value={f.pfmlClaimNumber} onChange={set("pfmlClaimNumber")} placeholder="ME-PFML-2026-00441" />
-              <Input label="PFML Waiting / Elimination Period (days)" value={f.pfmlWaitingDays} onChange={set("pfmlWaitingDays")} type="number" hint="Maine: 7-day wait for own medical leave; no wait for other reasons" />
-              <Input label="Estimated Weekly PFML Benefit ($)" value={f.pfmlWeeklyBenefit} onChange={set("pfmlWeeklyBenefit")} type="number" placeholder="680.00" />
-              <Input label="PFML Benefit % of Wages" value={f.pfmlBenefitPct} onChange={set("pfmlBenefitPct")} type="number" placeholder="60" hint="Varies by program and wage band" />
-              <Input label="PFML Weeks Available in Benefit Year" value={f.pfmlWeeksAvailable} onChange={set("pfmlWeeksAvailable")} type="number" hint="Maine: up to 12 weeks; benefit year starts on leave start date" />
-              <Input label="PFML Weeks Already Used This Benefit Year" value={f.pfmlWeeksUsed} onChange={set("pfmlWeeksUsed")} type="number" />
-              <Select label="Primary Payer (when both PFML + STD apply)" value={f.pfmlPrimaryPayer} onChange={set("pfmlPrimaryPayer")} options={["PFML pays first", "STD pays first", "Employer plan coordinates — see plan terms"]} />
-            </Grid>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>PFML Claim Filed?</div>
-              <div style={{ display: "flex", gap: 24 }}>
-                <Radio label="Yes" value="yes" current={f.pfmlClaimFiled} onChange={set("pfmlClaimFiled")} />
-                <Radio label="No — Pending" value="no" current={f.pfmlClaimFiled} onChange={set("pfmlClaimFiled")} />
+            );
+            return (
+              <div key={zone.key} style={{ marginBottom: 14, background: BBGL, border: `1px solid ${BBDR}`, borderRadius: 8, padding: "13px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: BLUE, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: ff }}>{zone.label}</div>
+                  <span style={{ fontSize: 10, color: BLUE, background: "white", border: `1px solid ${BBDR}`, borderRadius: 99, padding: "1px 8px", fontFamily: ff, fontWeight: 600 }}>{zone.context}</span>
+                </div>
+                <div style={{ fontSize: 11, color: G600, marginBottom: 7, fontFamily: ff }}>{zone.hint}</div>
+                <textarea value={f[zone.key]} onChange={e => set(zone.key)(e.target.value)} placeholder={zone.placeholder} rows={3}
+                  style={{ width: "100%", border: `1px solid ${BBDR}`, borderRadius: 6, padding: "8px 10px", fontSize: 13, fontFamily: ff, resize: "vertical", color: G900, background: "white", lineHeight: 1.55, boxSizing: "border-box" }} />
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+                  <button onClick={async () => {
+                    const k = zone.key; set(k)("Drafting…");
+                    try {
+                      const r = await fetch("https://api.anthropic.com/v1/messages", { method:"POST", headers:{"Content-Type":"application/json","x-api-key":import.meta.env.VITE_ANTHROPIC_API_KEY||"","anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"}, body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:200,messages:[{role:"user",content:zone.prompt}]}) });
+                      const d = await r.json(); set(k)(!r.ok?"":d.content?.[0]?.text?.trim()||"");
+                    } catch { set(k)(""); }
+                  }} style={{ fontSize:11, padding:"4px 12px", borderRadius:6, border:`1px solid ${BBDR}`, background:"white", color:BLUE, cursor:"pointer", fontFamily:ff, fontWeight:600 }}>
+                    ✨ Draft with AI
+                  </button>
+                  <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                    <span style={{ fontSize:11, color:G400, fontFamily:ff }}>{(f[zone.key]||"").length} chars</span>
+                    {f[zone.key] && <button onClick={() => set(zone.key)("")} style={{ fontSize:11, color:G400, background:"none", border:"none", cursor:"pointer", fontFamily:ff }}>Clear</button>}
+                  </div>
+                </div>
               </div>
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: G600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>PFML Benefits Offset by Concurrent STD?</div>
-              <div style={{ display: "flex", gap: 24 }}>
-                <Radio label="Yes (dollar-for-dollar offset)" value="yes" current={f.pfmlOffsetStd} onChange={set("pfmlOffsetStd")} />
-                <Radio label="No offset" value="no" current={f.pfmlOffsetStd} onChange={set("pfmlOffsetStd")} />
-              </div>
-            </div>
-          </div>
-        </>
-      )}
+            );
+          })}
 
-      {/* ── CUSTOM LETTER CONTENT ── */}
-      <SectionHead icon="✏️" title="Custom Letter Content" subtitle="Optional — each zone appears in the generated claimant letter. Blank zones are omitted." />
-
-      {[
-        { key: "customOpening", label: "Zone 1 — Opening note", hint: "Appears after 'Dear [Name],' before the standard eligibility text. Good for empathy language or context from a prior conversation.", placeholder: "e.g. We appreciate you reaching out and hope you are feeling better. Our team is here to support you." },
-        { key: "customMidNote", label: "Zone 2 — Mid-letter note", hint: "Appears after the designation section, before medical certification. Good for case-specific instructions or coordination details.", placeholder: "e.g. Please coordinate your return directly with your manager, Jennifer Walsh, at jwalsh@acmemfg.com." },
-        { key: "customClosing", label: "Zone 3 — Closing note", hint: "Appears before the signature, after your obligations. Good for EAP referrals, benefit programs, or additional employer-specific notes.", placeholder: "e.g. Our Employee Assistance Program (EAP) offers free confidential support at 1-800-555-EAP7, available 24/7." },
-      ].map(zone => (
-        <div key={zone.key} style={{ marginBottom: 18, background: BBGL, border: `1px solid ${BBDR}`, borderRadius: 8, padding: "14px 16px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: BLUE, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4, fontFamily: ff }}>{zone.label}</div>
-          <div style={{ fontSize: 11, color: G600, marginBottom: 8, fontFamily: ff }}>{zone.hint}</div>
-          <textarea
-            value={f[zone.key]}
-            onChange={e => set(zone.key)(e.target.value)}
-            placeholder={zone.placeholder}
-            rows={3}
-            style={{ width: "100%", border: `1px solid ${BBDR}`, borderRadius: 6, padding: "8px 10px", fontSize: 13, fontFamily: ff, resize: "vertical", color: G900, background: "white", lineHeight: 1.55, boxSizing: "border-box" }}
-          />
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
-            <button
-              onClick={async () => {
-                const prompts = {
-                  customOpening: `Write a warm, brief 1-2 sentence opening paragraph for an FMLA leave letter addressed to ${f.employeeName || "the employee"} at ${f.employerName || "the employer"}. The leave is for: ${f.qualifyingReason}. Keep it human, compassionate, and professional. No legal language. Return only the paragraph text.`,
-                  customMidNote: `Write a brief, practical mid-letter note for an FMLA letter for ${f.employeeName || "the employee"} (${f.position || "employee"}, ${f.department || "department"}) at ${f.employerName || "the employer"}. HR contact is ${f.hrContactName || "HR"} at ${f.hrEmail || f.hrPhone || "HR contact"}. The note should help the employee coordinate their return. 1-2 sentences, plain language. Return only the text.`,
-                  customClosing: `Write a brief, warm closing note for an FMLA leave letter for ${f.employeeName || "the employee"} at ${f.employerName || "the employer"}. Mention their wellbeing and encourage them to reach out. 1-2 sentences. If an EAP or support program is relevant, reference it generically. Plain language, no legal terms. Return only the text.`,
-                };
-                const currentKey = zone.key;
-                set(currentKey)("Drafting…");
-                try {
-                  const res = await fetch("https://api.anthropic.com/v1/messages", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY || "", "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
-                    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 200, messages: [{ role: "user", content: prompts[currentKey] }] }),
-                  });
-                  const data = await res.json();
-                  set(currentKey)(data.content?.[0]?.text?.trim() || "");
-                } catch { set(currentKey)(""); }
-              }}
-              style={{ fontSize: 11, padding: "4px 12px", borderRadius: 6, border: `1px solid ${BBDR}`, background: "white", color: BLUE, cursor: "pointer", fontFamily: ff, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}
-            >
-              ✨ Draft with AI
-            </button>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: G400, fontFamily: ff }}>{(f[zone.key] || "").length} chars</span>
-              {f[zone.key] && <button onClick={() => set(zone.key)("")} style={{ fontSize: 11, color: G400, background: "none", border: "none", cursor: "pointer", fontFamily: ff }}>Clear</button>}
-            </div>
-          </div>
-        </div>
-      ))}
+        </>);
+      })()}
 
       {/* Generate button */}
       <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}>
