@@ -1,4 +1,4 @@
-\import { useState } from "react";
+import { useState } from "react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const NAV = "#1B3A6B";
