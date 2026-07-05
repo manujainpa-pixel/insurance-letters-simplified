@@ -878,7 +878,7 @@ function ComplianceReport({ f }) {
       detail: `PTO restriction notice ${f.stdNotePtoRestriction ? "included" : "not included"} in STD addendum · STD benefit is not unpaid leave — FMLA concurrent PTO requirement does not apply`,
       warn: !f.stdNotePtoRestriction ? "Consider including PTO restriction notice in STD addendum" : null,
     });
-    if(showDN) groups.push({ title: "Benefits & Reinstatement (§825.209–214)", icon: "🏥", items: benItems });
+    groups.push({ title: "Benefits & Reinstatement (§825.209–214)", icon: "🏥", items: benItems });
   }
 
   // ── GROUP 6: State-Specific ───────────────────────────────────────────────
@@ -1046,7 +1046,7 @@ function ComplianceReport({ f }) {
       detail: "If employer disputes certification: (1) notify employee in writing, (2) employer designates and pays for second opinion, (3) third opinion is binding. Employee may work until process completes.",
       operatorNote: "Operator action item: if cert is questioned, initiate second opinion within 5 days and document the decision — do not deny leave pending opinion.",
     });
-    if(showDN) groups.push({ title: "Employer Designation Obligations", icon: "📌", items: eoItems });
+    groups.push({ title: "Employer Designation Obligations", icon: "📌", items: eoItems });
   }
 
   // ── GROUP 9: Anti-Retaliation & Non-Interference ─────────────────────────
@@ -1087,7 +1087,7 @@ function ComplianceReport({ f }) {
       detail: `${f.position ? `Position: ${f.position}` : "Position not specified"} — key employee status must be determined before leave begins and employee notified in writing at the time of designation`,
       operatorNote: "Key employee exception is rarely applicable and requires contemporaneous written notice. Do not apply retroactively after leave ends.",
     });
-    groups.push({ title: "Anti-Retaliation & Reinstatement Rights", icon: "⚖️", items: arItems });
+    if (showDN) groups.push({ title: "Anti-Retaliation & Reinstatement Rights", icon: "⚖️", items: arItems });
   }
 
   // ── GROUP 10: Intermittent Leave Tracking ────────────────────────────────
@@ -1151,7 +1151,8 @@ function ComplianceReport({ f }) {
       detail: `${f.letterType === "std" ? "STD + FMLA running concurrently confirmed · " : ""}ADA interactive process may be required independently · Workers' comp leave may also trigger FMLA if condition qualifies as serious health condition`,
       operatorNote: "Concurrent leaves are the norm, not the exception. Document each law's obligations separately — FMLA exhaustion does not end ADA or workers' comp obligations.",
     });
-    if(showDN) groups.push({ title: "ADA / ADAAA & Concurrent Law Interaction", icon: "🔗", items: adaItems });
+    const isHealthLeave = !(f.qualifyingReason||"").includes("bonding") && !(f.qualifyingReason||"").includes("Birth") && !(f.qualifyingReason||"").includes("Adoption") && !(f.qualifyingReason||"").includes("exigency");
+    if(showDN && isHealthLeave) groups.push({ title: "ADA / ADAAA & Concurrent Law Interaction", icon: "🔗", items: adaItems });
   }
 
   // ── GROUP 12: Recordkeeping & Audit Trail ────────────────────────────────
@@ -1362,23 +1363,56 @@ function ComplianceReport({ f }) {
     const hasEmployee  = !!(f.employeeName && f.employeeId && f.position);
     const hasLeave     = !!(f.leaveStart && f.noticeReceived);
     const hasAdmin     = !!(f.adminName && f.adminPhone && f.adminEmail);
-    const hasElig      = !!(f.fmlaEligible);
-    const hasCert      = f.medCertRequired !== "yes" || !!(f.medCertStatus && f.medCertStatus !== "Pending");
-    const hasReturn    = !!(f.anticipatedReturn || f.leaveEnd);
-    const hasPremium   = !!(f.employeePremiumShare);
-    const hasStdFields = f.letterType !== "std" || !!(f.stdClaimNumber && f.stdWeeklyBenefit);
-    const hasPfmlFields= f.letterType !== "pfml" || !!(f.pfmlClaimNumber && f.pfmlProgram);
+    const hasElig      = showEN ? !!(f.fmlaEligible) : true;
+    const hasDesig     = showDN ? !!(f.isDesignated) : true;
+    const hasCert      = !showDN || f.medCertRequired !== "yes" || !!(f.medCertStatus && f.medCertStatus !== "Pending");
+    const hasReturn    = !showDN || !!(f.anticipatedReturn || f.leaveEnd);
+    const hasPremium   = !showDN || !!(f.employeePremiumShare);
 
-    srItems.push({ pass: hasEmployer,   reg: "Pre-send check", req: "Employer, HR contact name, and HR phone number completed", detail: hasEmployer   ? `${f.employerName} · ${f.hrContactName} · ${f.hrPhone}` : "⚠ Missing employer or HR contact fields", warn: !hasEmployer   ? "Complete employer information before sending" : null, operatorNote: null });
-    srItems.push({ pass: hasEmployee,   reg: "Pre-send check", req: "Employee name, ID, and position completed", detail: hasEmployee   ? `${f.employeeName} · ${f.employeeId} · ${f.position}` : "⚠ Missing employee identity fields", warn: !hasEmployee   ? "Complete employee fields before sending" : null, operatorNote: null });
-    srItems.push({ pass: hasLeave,      reg: "Pre-send check", req: "Leave start date and notice-received date entered", detail: hasLeave     ? `Notice received: ${f.noticeReceived} · Leave starts: ${f.leaveStart}` : "⚠ Missing leave dates — cannot calculate SLA", warn: !hasLeave ? "Leave dates required to verify 5-day SLA and calculate entitlement" : null, operatorNote: null });
-    srItems.push({ pass: hasAdmin,      reg: "Pre-send check", req: "Leave administrator name, phone, and email completed (displayed on letter for employee contact)", detail: hasAdmin ? `${f.adminName} · ${f.adminPhone} · ${f.adminEmail}` : "⚠ Missing administrator contact info", warn: !hasAdmin ? "Administrator contact required by 29 CFR §825.300(a)(3)" : null, operatorNote: null });
-    srItems.push({ pass: hasElig,       reg: "Pre-send check", req: "Eligibility determination made and documented", detail: `FMLA eligible: ${f.fmlaEligible === "yes" ? "Yes" : "No"} · ${f.fmlaEligible !== "yes" ? "Ineligibility reasons: " + [f.ineligMonths && "months", f.ineligHours && "hours", f.ineligSize && "size"].filter(Boolean).join(", ") : "All 3 criteria passed"}`, warn: null, operatorNote: null });
-    srItems.push({ pass: hasCert,       reg: "Pre-send check", req: "Medical certification status resolved before issuing DN or combined EN+DN", detail: hasCert ? `Cert status: ${f.medCertStatus}` : "⚠ Cert pending — can issue EN, but DN should await sufficient information (received cert)", warn: !hasCert && showDN ? "Pending cert: consider issuing EN only now, then DN once cert received" : null, operatorNote: "Issuing a DN with a pending cert may create issues if cert later shows leave does not qualify. Best practice: wait for cert before DN." });
-    srItems.push({ pass: hasReturn,     reg: "Pre-send check", req: "Anticipated return-to-work date confirmed with employee", detail: hasReturn ? `Anticipated return: ${f.anticipatedReturn || f.leaveEnd}` : "⚠ Return date not confirmed", warn: !hasReturn ? "Confirm return date — needed for FFD cert timing and workforce planning" : null, operatorNote: null });
-    srItems.push({ pass: hasPremium,    reg: "Pre-send check", req: "Employee health insurance premium share documented", detail: hasPremium ? `$${f.employeePremiumShare} · ${f.premiumPaymentMethod}` : "⚠ Premium share not entered — required for §825.210(b) compliance", warn: !hasPremium ? "Enter premium share before sending — required disclosure" : null, operatorNote: null });
-    srItems.push({ pass: hasStdFields,  reg: "Pre-send check", req: f.letterType === "std" ? "STD carrier, claim number, and weekly benefit entered for addendum" : "N/A — not an STD letter", detail: f.letterType === "std" ? (hasStdFields ? `STD claim: ${f.stdClaimNumber} · $${f.stdWeeklyBenefit}/wk` : "⚠ Missing STD details for addendum") : "Not applicable for this letter type", warn: f.letterType === "std" && !hasStdFields ? "Complete STD addendum fields before sending" : null, operatorNote: null });
-    srItems.push({ pass: hasPfmlFields, reg: "Pre-send check", req: f.letterType === "pfml" ? "PFML program name and claim number entered for addendum" : "N/A — not a PFML letter", detail: f.letterType === "pfml" ? (hasPfmlFields ? `${f.pfmlProgram} · Claim: ${f.pfmlClaimNumber}` : "⚠ Missing PFML program or claim number") : "Not applicable for this letter type", warn: f.letterType === "pfml" && !hasPfmlFields ? "Complete PFML addendum fields before sending" : null, operatorNote: null });
+    // Always required
+    srItems.push({ pass: hasEmployer, reg: "Pre-send", req: "Employer, HR contact, and phone completed", detail: hasEmployer ? `${f.employerName} · ${f.hrContactName} · ${f.hrPhone}` : "⚠ Missing employer or HR contact fields", warn: !hasEmployer ? "Complete employer information before sending" : null, operatorNote: null });
+    srItems.push({ pass: hasEmployee, reg: "Pre-send", req: "Employee name, ID, and position completed", detail: hasEmployee ? `${f.employeeName} · ${f.employeeId} · ${f.position}` : "⚠ Missing employee identity fields", warn: !hasEmployee ? "Complete employee fields before sending" : null, operatorNote: null });
+    srItems.push({ pass: hasLeave,    reg: "Pre-send", req: "Leave start date and notice-received date entered", detail: hasLeave ? `Notice: ${f.noticeReceived} · Leave start: ${f.leaveStart}` : "⚠ Missing leave dates — cannot calculate SLA", warn: !hasLeave ? "Leave dates required to verify 5-day SLA" : null, operatorNote: null });
+    srItems.push({ pass: hasAdmin,    reg: "29 CFR §825.300(a)(3)", req: "Leave administrator name, phone, and email completed", detail: hasAdmin ? `${f.adminName} · ${f.adminPhone} · ${f.adminEmail}` : "⚠ Missing administrator contact info", warn: !hasAdmin ? "Administrator contact required by 29 CFR §825.300(a)(3)" : null, operatorNote: null });
+
+    // EN-specific
+    if (showEN) srItems.push({ pass: hasElig, reg: "Pre-send (EN)", req: "Eligibility determination made and documented", detail: `FMLA eligible: ${f.fmlaEligible === "yes" ? "Yes — all 3 criteria met" : "No — " + [f.ineligMonths && "< 12 months", f.ineligHours && "< 1,250 hrs", f.ineligSize && "< 50 employees"].filter(Boolean).join(", ")}`, warn: !hasElig ? "Set eligibility determination before sending EN" : null, operatorNote: null });
+
+    // DN-specific
+    if (showDN) {
+      srItems.push({ pass: hasDesig,  reg: "Pre-send (DN)", req: "Designation decision entered — designated or not designated with reason", detail: hasDesig ? `Designation: ${f.isDesignated === "yes" ? "FMLA-designated" : "Not designated — " + (f.nonDesignationReason || "reason not entered")}` : "⚠ Designation decision not made", warn: !hasDesig ? "Enter designation decision before sending DN" : null, operatorNote: null });
+      srItems.push({ pass: hasCert,   reg: "Pre-send (DN)", req: "Medical certification status resolved — do not issue DN with cert still pending if possible", detail: hasCert ? `Cert status: ${f.medCertRequired === "yes" ? f.medCertStatus : "Not required"}` : "⚠ Cert pending — DN should await sufficient information", warn: !hasCert ? "Consider issuing EN only now; send DN once cert received and reviewed" : null, operatorNote: "Issuing DN with pending cert creates risk if cert later shows leave doesn't qualify." });
+      srItems.push({ pass: hasReturn, reg: "Pre-send (DN)", req: "Anticipated return-to-work date confirmed", detail: hasReturn ? `Anticipated return: ${f.anticipatedReturn || f.leaveEnd}` : "⚠ Return date not confirmed", warn: !hasReturn ? "Confirm return date for FFD cert timing and workforce planning" : null, operatorNote: null });
+      srItems.push({ pass: hasPremium, reg: "29 CFR §825.210(b) / Pre-send (DN)", req: "Employee health insurance premium share documented", detail: hasPremium ? `$${f.employeePremiumShare} · ${f.premiumPaymentMethod}` : "⚠ Premium share not entered — required disclosure", warn: !hasPremium ? "Enter premium share before sending — required by §825.210(b)" : null, operatorNote: null });
+    }
+
+    // STD-specific — only for FMLA+STD
+    if (isSTDl) {
+      const hasStd = !!(f.stdClaimNumber && f.stdWeeklyBenefit && f.stdCarrierName);
+      srItems.push({ pass: hasStd, reg: "Pre-send (STD addendum)", req: "STD carrier, claim number, and weekly benefit entered for addendum", detail: hasStd ? `${f.stdCarrierName} · Claim: ${f.stdClaimNumber} · $${f.stdWeeklyBenefit}/wk · ${f.stdEliminationDays}-day wait` : `⚠ Missing: ${[!f.stdCarrierName && "carrier", !f.stdClaimNumber && "claim number", !f.stdWeeklyBenefit && "weekly benefit"].filter(Boolean).join(", ")}`, warn: !hasStd ? "Complete all STD addendum fields — employee needs benefit details in the letter" : null, operatorNote: "STD claim number and benefit amount are required to satisfy ERISA §102 disclosure obligations." });
+      const hasPtoFlag = f.stdNotePtoRestriction;
+      srItems.push({ pass: hasPtoFlag, reg: "DOL FMLA-2019-2-A / Pre-send (STD)", req: "PTO restriction notice included — employee cannot be required to use PTO during STD benefit period", detail: hasPtoFlag ? "PTO restriction notice included in STD addendum ✓" : "⚠ PTO restriction notice not checked — employer cannot require concurrent PTO during STD", warn: !hasPtoFlag ? "Enable the PTO restriction notice toggle in the STD section" : null, operatorNote: "This is a compliance requirement, not a best practice. Requiring PTO during STD violates DOL guidance." });
+    }
+
+    // PFML-specific — only for FMLA+PFML
+    if (isPFMLl) {
+      const hasPfml = !!(f.pfmlClaimNumber && f.pfmlProgram && f.pfmlAdminContact);
+      srItems.push({ pass: hasPfml, reg: "Pre-send (PFML addendum)", req: "PFML program name, claim number, and administrator entered for addendum", detail: hasPfml ? `${f.pfmlProgram} · Claim: ${f.pfmlClaimNumber} · Admin: ${f.pfmlAdminContact}` : `⚠ Missing: ${[!f.pfmlProgram && "program name", !f.pfmlClaimNumber && "claim number", !f.pfmlAdminContact && "administrator"].filter(Boolean).join(", ")}`, warn: !hasPfml ? "Complete PFML addendum fields before sending" : null, operatorNote: "Employee needs PFML claim number and program contact to follow up on their benefit separately." });
+      srItems.push({ pass: f.pfmlClaimFiled === "yes", reg: "State PFML / Pre-send (PFML)", req: "PFML claim filed or employee directed to file before or at time of this letter", detail: f.pfmlClaimFiled === "yes" ? `PFML claim ${f.pfmlClaimNumber || "(number TBD)"} filed with ${f.pfmlAdminContact || "the administrator"}` : "⚠ PFML claim not yet filed — FMLA and PFML clocks run simultaneously from leave start", warn: f.pfmlClaimFiled !== "yes" ? "Ensure employee files PFML claim immediately — delayed filing does not extend FMLA protection" : null, operatorNote: null });
+    }
+
+    // Maine-specific
+    if (stateCode === "ME") {
+      const hasMaineWeeks = !!(f.maineUsedWeeks !== "" && f.maineBenefitYearStart);
+      srItems.push({ pass: hasMaineWeeks, reg: "26 M.R.S. § 844 / Pre-send (ME)", req: "Maine FMLA 2-year balance and benefit year start date entered for state overlay", detail: hasMaineWeeks ? `ME weeks used: ${f.maineUsedWeeks} · Remaining: ${Math.max(0, parseInt(f.maineEntitlementWeeks||10) - parseInt(f.maineUsedWeeks||0))} · Year start: ${f.maineBenefitYearStart}` : "⚠ Maine FMLA balance fields not entered — required for the ME 2-year entitlement disclosure", warn: !hasMaineWeeks ? "Enter Maine FMLA weeks used and benefit year start date for state overlay accuracy" : null, operatorNote: null });
+    }
+
+    // TN-specific
+    if (stateCode === "TN") {
+      const isBondTN = (f.qualifyingReason||"").includes("Birth") || (f.qualifyingReason||"").includes("Adoption") || (f.qualifyingReason||"").includes("bonding");
+      if (isBondTN) srItems.push({ pass: !!(f.worksiteHeadcount), reg: "T.C.A. § 4-21-408 / Pre-send (TN)", req: "Worksite headcount entered — required to confirm TN Parental Leave Act applicability (≥100 employees)", detail: f.worksiteHeadcount ? `Worksite: ${f.worksiteHeadcount} employees — ${parseInt(f.worksiteHeadcount)>=100 ? "TN Act applies ✓" : "TN Act does NOT apply (< 100 employees)"}` : "⚠ Worksite headcount not entered — cannot determine TN Act applicability", warn: !f.worksiteHeadcount ? "Enter worksite headcount to confirm whether TN Parental Leave Act applies" : parseInt(f.worksiteHeadcount) < 100 ? "TN Parental Leave Act does not apply — remove TN overlay language from letter" : null, operatorNote: null });
+    }
+
     groups.push({ title: "Send Readiness Checklist", icon: "✉️", items: srItems });
   }
 
