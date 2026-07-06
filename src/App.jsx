@@ -2117,7 +2117,8 @@ const SAMPLE_CSV = `claim_number,employee_name,employee_id,position,department,e
 CLM-2026-001,Sarah Thompson,EMP-001,Operations Analyst,Supply Chain,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2019-03-14,1820,87,250,Maine (ME),2026-06-30,2026-08-11,Continuous,Employee's own serious health condition,2026-06-19,STD-2026-001,1340,7,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
 CLM-2026-002,Marcus Johnson,EMP-002,Sales Manager,Commercial,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2022-08-01,1100,46,250,Tennessee (TN),2026-07-15,2026-11-15,Continuous,Birth and bonding with newborn (within 1 year),2026-07-01,,,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
 CLM-2026-003,Priya Patel,EMP-003,Software Engineer,IT,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2018-01-15,1680,101,250,Federal Only (No State Overlay),2026-07-01,2026-07-14,Intermittent,Care for spouse/family member with serious health condition,2026-06-28,,,ME-PFML-2026-003,Maine Paid Family & Medical Leave,680,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
-CLM-2026-004,David Chen,EMP-004,Accountant,Finance,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2025-03-01,420,15,250,Maine (ME),2026-07-10,2026-07-24,Continuous,Employee's own serious health condition,2026-07-05,,,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com`;
+CLM-2026-004,David Chen,EMP-004,Accountant,Finance,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2025-03-01,420,15,250,Maine (ME),2026-07-10,2026-07-24,Continuous,Employee's own serious health condition,2026-07-05,,,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
+CLM-2026-005,Rachel Kim,EMP-005,Senior HR Analyst,Human Resources,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2017-06-12,1950,96,250,Federal Only (No State Overlay),2026-07-14,2026-07-28,Continuous,Employee's own serious health condition,2026-07-07,,,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com`;
 
 function parseCSV(text) {
   const lines = text.trim().split("\n");
@@ -2201,6 +2202,11 @@ function ChatAgent({ claim, onOpenForm, onAgentComplete }) {
       parseInt(claim.worksite_headcount || 0) >= 50;
     const stateCode = claim.state_of_employment?.includes("ME") ? "ME"
                     : claim.state_of_employment?.includes("TN") ? "TN" : null;
+    const hasStd    = !!(claim.std_claim_number);
+    const hasPfml   = !!(claim.pfml_claim_number);
+
+    // Detect fast-track EN: eligible, no STD/PFML, federal only — only 2 questions needed
+    const isFastTrackEN = isEligible && !hasStd && !hasPfml && !stateCode;
 
     return `You are an FMLA Letter Generation Assistant helping a claims operator generate a compliant letter through conversation.
 
@@ -2211,23 +2217,37 @@ ELIGIBILITY: ${isEligible ? "ELIGIBLE — all 3 criteria met" : "NOT ELIGIBLE �
 - Months employed: ${claim.months_employed} (need ≥12): ${parseInt(claim.months_employed||0)>=12?"PASS":"FAIL"}
 - Hours last 12mo: ${claim.hours_last_12mo} (need ≥1,250): ${parseInt(claim.hours_last_12mo||0)>=1250?"PASS":"FAIL"}
 - Worksite headcount: ${claim.worksite_headcount} (need ≥50): ${parseInt(claim.worksite_headcount||0)>=50?"PASS":"FAIL"}
-${stateCode==="ME"?`MAINE: State FMLA also applies (≥15 employees, 12 consecutive months, 10 wks/2-yr window)`:``}
-${stateCode==="TN"?`TENNESSEE: Parental Leave Act applies only if birth/adoption AND ≥100 employees at worksite`:``}
+${stateCode==="ME"?`MAINE: State FMLA also applies (≥15 employees, 12 consecutive months, 10 wks/2-yr window)`:""}
+${stateCode==="TN"?`TENNESSEE: Parental Leave Act applies only if birth/adoption AND ≥100 employees at worksite`:""}
+${isFastTrackEN ? `
+⚡ FAST-TRACK ELIGIBLE: This is a clean standalone federal FMLA claim — no STD, no PFML, no state overlay.
+All data is present in the claim system. You only need 2 answers from the operator:
+  Q1. Notice scope: EN only / DN only / EN+DN combined
+  Q2. Letter type: Standalone FMLA / FMLA+STD / FMLA+PFML (answer is almost certainly Standalone FMLA — confirm)
+After getting these 2 answers, output FIELDS_COMPLETE immediately with sensible defaults for all other fields.
+Do NOT ask about designation, cert, paid leave, FFD, return date, or premium — these are EN-only defaults or not needed for EN scope.
+` : ""}
 
 FIELDS ALREADY KNOWN FROM CSV — DO NOT ASK FOR THESE:
 employee name, id, position, department, employer, HR contact, hire date, hours worked,
 months employed, worksite headcount, state, leave dates, leave type, qualifying reason,
-notice received date, STD claim details (if present), PFML claim details (if present)
+notice received date, STD claim details (if present), PFML claim details (if present),
+admin name, admin phone, admin email
 
-FIELDS STILL NEEDED (ask in this order):
+${isFastTrackEN ? `FIELDS NEEDED — ONLY 2:
+1. Notice scope (EN only / DN only / EN+DN combined)
+2. Letter type confirmation (Standalone FMLA / FMLA+STD / FMLA+PFML)
+
+After these 2 answers → output FIELDS_COMPLETE immediately.` : `FIELDS STILL NEEDED (ask in this order):
 1. Notice scope: EN only / DN only / EN+DN combined
-2. Designation decision: is leave designated as FMLA?
-3. If designated: how many weeks counted against entitlement?
-4. Medical cert: required? if yes — status (received/pending) and provider name
-5. Paid leave concurrent: required? which types?
-6. Fitness-for-duty cert required to return?
-7. Anticipated return-to-work date (may already equal leave end date — confirm)
-8. Employee health insurance premium share (dollar amount)
+2. Letter type: Standalone FMLA / FMLA+STD / FMLA+PFML
+3. Designation decision (DN/combined only): is leave designated as FMLA?
+4. If designated: how many weeks counted against entitlement?
+5. Medical cert: required? if yes — status (received/pending) and provider name
+6. Paid leave concurrent: required? which types?
+7. Fitness-for-duty cert required to return?
+8. Anticipated return-to-work date (may already equal leave end date — confirm)
+9. Employee health insurance premium share (dollar amount)`}
 
 RULES:
 - Ask ONE question at a time. Be concise (3-5 lines max per response).
@@ -2237,14 +2257,14 @@ RULES:
 - Medical cert: employee gets 15 calendar days minimum from today.
 - If NOT eligible: still need designation (will be "not designated") and reason.
 - Cannot require concurrent PTO when employee is receiving STD benefits.
-${stateCode==="ME"?`- Maine: confirm 2-year PFML window balance if PFML applies.`:``}
-${stateCode==="TN"?`- TN: Parental Leave Act only if headcount ≥100 AND reason is birth/adoption. TN gives 4 months CONCURRENT with FMLA, not additional.`:``}
+${stateCode==="ME"?`- Maine: confirm 2-year PFML window balance if PFML applies.`:""}
+${stateCode==="TN"?`- TN: Parental Leave Act only if headcount ≥100 AND reason is birth/adoption. TN gives 4 months CONCURRENT with FMLA, not additional.`:""}
 
 WHEN ALL FIELDS COLLECTED:
-1. Give a brief 3-bullet summary of what the letter will include.
+1. Give a brief 2-3 bullet summary of what the letter will include.
 2. Output the marker: FIELDS_COMPLETE
 3. Then output a JSON block like this (no markdown fences, just raw JSON on its own line):
-{"noticeScope":"combined","isDesignated":"yes","weeksCountedFmla":"6","medCertRequired":"yes","medCertStatus":"Received — Sufficient","providerName":"Dr. Smith","paidLeaveConcurrent":"yes","paidLeaveTypes":"Accrued sick and PTO","fitForDutyRequired":"yes","anticipatedReturn":"2026-08-12","premiumShare":"187.50","nonDesignationReason":""}`;
+{"noticeScope":"en","letterType":"fmla","isDesignated":"yes","weeksCountedFmla":"","medCertRequired":"yes","medCertStatus":"Pending","providerName":"","paidLeaveConcurrent":"yes","paidLeaveTypes":"Accrued sick and PTO","fitForDutyRequired":"yes","anticipatedReturn":"${claim.leave_end||""}","premiumShare":"","nonDesignationReason":""}`;
   }
 
   async function send(text) {
@@ -2546,12 +2566,18 @@ function ClaimSelector({ claims, onSelect, onBack }) {
             const stateCode = c.state_of_employment?.includes("ME") ? "ME" : c.state_of_employment?.includes("TN") ? "TN" : null;
             const hasStd = !!c.std_claim_number;
             const hasPfml = !!c.pfml_claim_number;
+            const isFastTrack = isEligible && !hasStd && !hasPfml && !stateCode;
             return (
               <div key={i} onClick={() => onSelect(c)}
-                style={{ background: "white", borderRadius: 10, padding: "16px 18px", boxShadow: "0 1px 6px rgba(0,0,0,0.07)", cursor: "pointer", border: `1px solid ${G200}`, transition: "all 0.15s" }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = NAV; e.currentTarget.style.boxShadow = "0 4px 14px rgba(27,58,107,0.12)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = G200; e.currentTarget.style.boxShadow = "0 1px 6px rgba(0,0,0,0.07)"; }}
+                style={{ background: isFastTrack ? "#FAFFFE" : "white", borderRadius: 10, padding: "16px 18px", boxShadow: "0 1px 6px rgba(0,0,0,0.07)", cursor: "pointer", border: `1.5px solid ${isFastTrack ? GBDR : G200}`, transition: "all 0.15s", position: "relative" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = isFastTrack ? GREEN : NAV; e.currentTarget.style.boxShadow = "0 4px 14px rgba(27,58,107,0.12)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = isFastTrack ? GBDR : G200; e.currentTarget.style.boxShadow = "0 1px 6px rgba(0,0,0,0.07)"; }}
               >
+                {isFastTrack && (
+                  <div style={{ position: "absolute", top: -10, right: 12, background: GREEN, color: "white", fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 99, fontFamily: ff, letterSpacing: "0.05em" }}>
+                    ⚡ 2-question demo
+                  </div>
+                )}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 700, color: G900, fontFamily: ff }}>{c.employee_name}</div>
@@ -2567,9 +2593,11 @@ function ClaimSelector({ claims, onSelect, onBack }) {
                   {stateCode && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: stateCode === "ME" ? BBGL : ABGL, color: stateCode === "ME" ? BLUE : AMBER, fontWeight: 600 }}>{stateCode} Overlay</span>}
                   {hasStd  && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: "#FFF7ED", color: "#7C2D12", fontWeight: 600 }}>FMLA+STD</span>}
                   {hasPfml && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: GBGL, color: GREEN, fontWeight: 600 }}>FMLA+PFML</span>}
+                  {!hasStd && !hasPfml && !stateCode && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: G100, color: G600, fontWeight: 600 }}>Standalone FMLA</span>}
                   <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: isEligible ? GBGL : RBGL, color: isEligible ? GREEN : RED, fontWeight: 600 }}>
                     {isEligible ? "✓ Eligible" : "⚠ Check eligibility"}
                   </span>
+                  {isFastTrack && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: GBGL, color: GREEN, fontWeight: 600 }}>⚡ EN ready — 2 questions</span>}
                 </div>
               </div>
             );
