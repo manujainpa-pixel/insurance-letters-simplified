@@ -1180,39 +1180,103 @@ function ComplianceReport({ f }) {
   // ── GROUP 11: ADA / ADAAA Interaction ────────────────────────────────────
   {
     const adaItems = [];
+
+    // Detect exhaustion risk: leave end date is more than 12 weeks from start
+    const leaveStartDate = new Date(f.leaveStart);
+    const leaveEndDate   = new Date(f.leaveEnd);
+    const leaveDurationWeeks = (!isNaN(leaveStartDate) && !isNaN(leaveEndDate))
+      ? Math.round((leaveEndDate - leaveStartDate) / (1000*60*60*24*7))
+      : 0;
+    const fmlaEntWks = parseInt(f.fmlaEntitlementWeeks || 12);
+    const fmlaUsedWks= parseInt(f.fmlaUsedWeeks || 0);
+    const fmlaRemWks = fmlaEntWks - fmlaUsedWks;
+    const exhaustionRisk = leaveDurationWeeks > fmlaRemWks && leaveDurationWeeks > 0;
+    const exhaustionDate = (() => {
+      if (!f.leaveStart || !fmlaRemWks) return null;
+      const d = new Date(f.leaveStart);
+      d.setDate(d.getDate() + fmlaRemWks * 7);
+      return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+    })();
+    const isIntermittent = f.leaveType === "Intermittent" || f.leaveType === "Reduced Schedule";
+    const hasSTDConcurrent = f.letterType === "std" && !!(f.stdClaimNumber);
+
+    // Item 1: Does this condition likely qualify as an ADA disability?
     adaItems.push({
       pass: true,
       reg: "ADA / ADAAA 42 U.S.C. §12101 / EEOC Guidance",
-      req: "Evaluate whether employee's condition qualifies as a disability under ADA — FMLA and ADA run concurrently when both apply",
-      detail: `Qualifying reason: ${f.qualifyingReason} · Serious health conditions frequently qualify as ADA disabilities — evaluate for reasonable accommodation obligations independent of FMLA`,
-      operatorNote: "ADA does not have a 12-week cap. When FMLA exhausts, if the employee has an ADA disability, additional unpaid leave may be required as a reasonable accommodation. Engage in the interactive process before denying return.",
+      req: "Evaluate whether this condition qualifies as a disability under the ADA — FMLA and ADA protections run at the same time when both apply",
+      detail: `Qualifying reason: "${f.qualifyingReason}" · Serious health conditions that are chronic, episodic, or in remission frequently qualify as ADA disabilities even if they do not currently limit the employee · ${isIntermittent ? "Intermittent leave pattern is a strong indicator of a chronic condition likely covered under ADA." : "Evaluate whether this condition substantially limits a major life activity."}`,
+      operatorNote: `The ADA has no 12-week limit. When FMLA protection ends${exhaustionDate ? ` (around ${exhaustionDate} for this claim)` : ""}, the ADA may independently require additional unpaid leave as a reasonable accommodation. Engage in the ADA interactive process BEFORE FMLA exhausts — do not wait until the last day of FMLA to start this conversation.`,
+      url: "https://www.eeoc.gov/laws/guidance/questions-and-answers-clarification-application-eeoc-guidance-reasonable-accommodation",
+      urlLabel: "EEOC Guidance — Reasonable Accommodation & Undue Hardship (eeoc.gov)",
     });
+
+    // Item 2: FMLA exhaustion — ADA engagement required (critical if exhaustion risk detected)
+    if (exhaustionRisk) adaItems.push({
+      pass: false,
+      reg: "ADA §102 / EEOC Enforcement Guidance on Leave",
+      req: `⚠ FMLA will exhaust before the anticipated leave end date — ADA interactive process must begin NOW`,
+      detail: `Leave requested through ${f.leaveEnd} (${leaveDurationWeeks} weeks) · FMLA protection covers only ${fmlaRemWks} week${fmlaRemWks!==1?"s":""} remaining · FMLA exhausts around ${exhaustionDate || "before leave ends"} · A gap of approximately ${leaveDurationWeeks - fmlaRemWks} week${leaveDurationWeeks-fmlaRemWks!==1?"s":""} exists beyond FMLA where ADA may require additional leave`,
+      warn: `Start the ADA interactive process now — do not wait until FMLA exhausts on ${exhaustionDate || "the exhaustion date"}`,
+      operatorNote: `Action required before FMLA ends: (1) Send a written notice that FMLA is exhausting and job protection will end; (2) Ask the employee in writing whether they are requesting ADA accommodation; (3) Obtain medical information about expected return date and any needed accommodations; (4) Evaluate whether additional leave is a reasonable accommodation (consider: duration requested, whether return date is certain, impact on operations); (5) Document the entire interactive process. Failing to engage before FMLA exhausts is the single most common source of ADA retaliation claims.`,
+      url: "https://www.eeoc.gov/laws/guidance/eeoc-informal-discussion-letter-ada-leave-fmla-exhaustion",
+      urlLabel: "EEOC Guidance — Leave as ADA Accommodation After FMLA (eeoc.gov)",
+    });
+
+    // Item 3: Intermittent leave as ADA accommodation
+    if (isIntermittent) adaItems.push({
+      pass: true,
+      reg: "ADA §102(b)(5) / 29 CFR §1630.9",
+      req: "Intermittent leave may also constitute a reasonable accommodation under ADA — evaluate separately from FMLA intermittent leave entitlement",
+      detail: `Leave type: ${f.leaveType} · ${f.intermittentFrequency ? `Pattern: ${f.intermittentFrequency}` : "Pattern not yet specified"} · If FMLA intermittent leave exhausts, ADA may independently require continued intermittent schedule modifications as a reasonable accommodation`,
+      operatorNote: "Track FMLA intermittent leave hours separately from ADA accommodation tracking. When FMLA intermittent entitlement exhausts, do not automatically deny continued schedule flexibility — evaluate as ADA accommodation request. An employee does not need to invoke 'ADA' explicitly to trigger the interactive process.",
+    });
+
+    // Item 4: STD + ADA exhaustion chain
+    if (hasSTDConcurrent) adaItems.push({
+      pass: true,
+      reg: "ADA §102 / ERISA §502 / DOL FMLA-2019-2-A",
+      req: "STD, FMLA, and ADA protections each have independent timelines — STD exhaustion does not end ADA obligations",
+      detail: `STD claim ${f.stdClaimNumber} · Max STD duration: ${f.stdMaxDurationWeeks || "TBD"} weeks · FMLA protection: ${fmlaRemWks} weeks remaining · Timeline: FMLA ends${exhaustionDate ? ` ~${exhaustionDate}` : ""} → STD may continue → ADA interactive process required throughout`,
+      operatorNote: `Three separate clocks run on this claim: (1) FMLA job protection (${fmlaRemWks} weeks remaining); (2) STD income replacement (up to ${f.stdMaxDurationWeeks || "TBD"} weeks); (3) ADA accommodation obligation (no set limit — based on undue hardship analysis). When FMLA ends, STD income may continue but job protection does not — unless ADA requires it. Brief the employee clearly on the difference between income protection and job protection.`,
+    });
+
+    // Item 5: FFD cert — ADA scope limit
     adaItems.push({
       pass: f.fitForDutyRequired === "yes",
-      reg: "29 CFR §825.312 / ADA §102(d)(3)",
-      req: "Fitness-for-duty certification must be job-related and consistent with business necessity; may not exceed scope of FMLA leave",
+      reg: "29 CFR §825.312 / ADA §102(d)(3) / EEOC Guidance",
+      req: "Fitness-for-duty certification must be job-related, consistent with business necessity, and may not exceed the scope of the FMLA-qualifying condition",
       detail: f.fitForDutyRequired === "yes"
-        ? `FFD required · Essential functions addressed: ${f.fitForDutyEssentialFunctions === "yes" ? "Yes — cert must address specific essential functions" : "No — general return-to-work clearance only"} · Employer may contact provider for clarification only, not additional information`
-        : "No FFD required — operator should verify this is appropriate given the nature of the qualifying condition",
-      warn: f.fitForDutyRequired !== "yes" ? "Consider whether FFD cert is needed to ensure safe return for this condition type" : null,
-      operatorNote: "If employee cannot provide FFD cert, do not automatically terminate. Evaluate ADA accommodation options first — additional leave, modified duties, or phased return may be required.",
+        ? `FFD required · Essential functions: ${f.fitForDutyEssentialFunctions === "yes" ? "Yes — cert must address specific job functions" : "No — general clearance only"} · Under ADA, employer may not require broader medical exam than the specific condition that caused the leave`
+        : "No FFD required — verify this is appropriate given the nature and duration of this condition",
+      warn: f.fitForDutyRequired !== "yes" ? "Consider whether an FFD cert is needed — especially for conditions that may affect ability to perform essential job functions" : null,
+      operatorNote: "If employee cannot pass FFD due to permanent restrictions, do not immediately terminate. Under ADA: (1) determine if essential functions can be modified; (2) evaluate reassignment to a vacant position; (3) only after exhausting these options may termination be considered. The burden is on the employer to show undue hardship.",
+      url: "https://www.eeoc.gov/laws/guidance/enforcement-guidance-disability-related-inquiries-and-medical-examinations-employees",
+      urlLabel: "EEOC Guidance — Medical Examinations of Employees (eeoc.gov)",
     });
+
+    // Item 6: GINA
     adaItems.push({
       pass: true,
-      reg: "GINA 29 CFR §1635 / ADA §102",
-      req: "Medical certification may only request information necessary to determine FMLA eligibility — cannot request diagnosis or genetic information",
-      detail: "DOL Form WH-380 series requests functional limitations and duration only — not diagnosis, prognosis, or treatment details beyond what is needed for FMLA determination",
-      operatorNote: "If employer receives unsolicited genetic information in a cert, immediately segregate it and do not use it in any employment decision. GINA violations carry significant liability.",
+      reg: "GINA 29 CFR §1635 / ADA §102(c)(2)",
+      req: "Medical certification may only request information necessary to determine FMLA qualification — cannot request diagnosis, genetic information, or family medical history",
+      detail: "DOL WH-380 series requests only functional limitations and expected duration — not diagnosis, genetic information, or treatment details",
+      operatorNote: "If employer receives unsolicited genetic information in a medical cert (e.g., family history noted by a doctor), immediately segregate it into a separate file and document that it was received inadvertently. Do not use it in any employment decision — GINA violations carry significant liability even when the information was volunteered.",
     });
+
+    // Item 7: Concurrent law interaction
     adaItems.push({
       pass: true,
-      reg: "29 CFR §825.702",
-      req: "FMLA does not diminish employer obligations under ADA, state disability law, or workers' compensation — all may run concurrently",
-      detail: `${f.letterType === "std" ? "STD + FMLA running concurrently confirmed · " : ""}ADA interactive process may be required independently · Workers' comp leave may also trigger FMLA if condition qualifies as serious health condition`,
-      operatorNote: "Concurrent leaves are the norm, not the exception. Document each law's obligations separately — FMLA exhaustion does not end ADA or workers' comp obligations.",
+      reg: "29 CFR §825.702 / ADA §501 / EEOC",
+      req: "FMLA does not reduce employer obligations under ADA, state disability laws, or workers' compensation — each law applies independently",
+      detail: `${hasSTDConcurrent ? "STD + FMLA + ADA all running concurrently · " : ""}${isIntermittent ? "Intermittent leave may constitute ADA accommodation independently of FMLA · " : ""}Document each law's obligations separately — FMLA exhaustion does not end ADA obligations`,
+      operatorNote: "Practical checklist when FMLA nears exhaustion: ☐ Send FMLA exhaustion notice; ☐ Send ADA interactive process invitation letter; ☐ Request updated medical information about expected return and needed accommodations; ☐ Evaluate reasonable accommodations (additional leave, modified duties, schedule, reassignment); ☐ Document the interactive process and any undue hardship analysis; ☐ Only terminate if no reasonable accommodation exists and documented properly.",
+      url: "https://www.eeoc.gov/laws/guidance/questions-and-answers-clarification-application-eeoc-guidance-reasonable-accommodation",
+      urlLabel: "EEOC Reasonable Accommodation Q&A (eeoc.gov)",
     });
+
     const isHealthLeave = !(f.qualifyingReason||"").includes("bonding") && !(f.qualifyingReason||"").includes("Birth") && !(f.qualifyingReason||"").includes("Adoption") && !(f.qualifyingReason||"").includes("exigency");
-    if(showDN && isHealthLeave) groups.push({ title: "ADA / ADAAA & Concurrent Law Interaction", icon: "🔗", items: adaItems });
+    if (showDN && isHealthLeave) groups.push({ title: "ADA / ADAAA & Concurrent Law Interaction", icon: "🔗", items: adaItems });
   }
 
   // ── GROUP 12: Recordkeeping & Audit Trail ────────────────────────────────
@@ -2178,7 +2242,8 @@ CLM-2026-001,Sarah Thompson,EMP-001,Operations Analyst,Supply Chain,Acme Manufac
 CLM-2026-002,Marcus Johnson,EMP-002,Sales Manager,Commercial,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2022-08-01,1100,46,250,Tennessee (TN),2026-07-15,2026-11-15,Continuous,Birth and bonding with newborn (within 1 year),2026-07-01,,,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
 CLM-2026-003,Priya Patel,EMP-003,Software Engineer,IT,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2018-01-15,1680,101,250,Federal Only (No State Overlay),2026-07-01,2026-07-14,Intermittent,Care for spouse/family member with serious health condition,2026-06-28,,,ME-PFML-2026-003,Maine Paid Family & Medical Leave,680,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
 CLM-2026-004,David Chen,EMP-004,Accountant,Finance,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2025-03-01,420,15,250,Maine (ME),2026-07-10,2026-07-24,Continuous,Employee's own serious health condition,2026-07-05,,,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
-CLM-2026-005,Rachel Kim,EMP-005,Senior HR Analyst,Human Resources,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2017-06-12,1950,96,250,Federal Only (No State Overlay),2026-07-14,2026-07-28,Continuous,Employee's own serious health condition,2026-07-07,,,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com`;
+CLM-2026-005,Rachel Kim,EMP-005,Senior HR Analyst,Human Resources,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2017-06-12,1950,96,250,Federal Only (No State Overlay),2026-07-14,2026-07-28,Continuous,Employee's own serious health condition,2026-07-07,,,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
+CLM-2026-006,James Rivera,EMP-006,Senior Systems Architect,Technology,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2015-09-08,1760,129,250,Federal Only (No State Overlay),2026-07-07,2026-12-31,Intermittent,Employee's own serious health condition,2026-07-01,STD-2026-006,2100,14,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com`;
 
 function parseCSV(text) {
   const lines = text.trim().split("\n");
@@ -2627,15 +2692,27 @@ function ClaimSelector({ claims, onSelect, onBack }) {
             const hasStd = !!c.std_claim_number;
             const hasPfml = !!c.pfml_claim_number;
             const isFastTrack = isEligible && !hasStd && !hasPfml && !stateCode;
+            // ADA flag: intermittent health condition with long leave end date AND STD — suggests chronic disability
+            const leaveEnd = new Date(c.leave_end);
+            const leaveStart = new Date(c.leave_start);
+            const leaveDays = !isNaN(leaveEnd) && !isNaN(leaveStart) ? (leaveEnd - leaveStart) / (1000*60*60*24) : 0;
+            const isADADemo = c.leave_type === "Intermittent" && hasStd && leaveDays > 84 && (c.qualifying_reason||"").includes("own");
+            const cardBg = isADADemo ? "#FFF8F0" : isFastTrack ? "#FAFFFE" : "white";
+            const cardBorder = isADADemo ? "#FED7AA" : isFastTrack ? GBDR : G200;
             return (
               <div key={i} onClick={() => onSelect(c)}
-                style={{ background: isFastTrack ? "#FAFFFE" : "white", borderRadius: 10, padding: "16px 18px", boxShadow: "0 1px 6px rgba(0,0,0,0.07)", cursor: "pointer", border: `1.5px solid ${isFastTrack ? GBDR : G200}`, transition: "all 0.15s", position: "relative" }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = isFastTrack ? GREEN : NAV; e.currentTarget.style.boxShadow = "0 4px 14px rgba(27,58,107,0.12)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = isFastTrack ? GBDR : G200; e.currentTarget.style.boxShadow = "0 1px 6px rgba(0,0,0,0.07)"; }}
+                style={{ background: cardBg, borderRadius: 10, padding: "16px 18px", boxShadow: "0 1px 6px rgba(0,0,0,0.07)", cursor: "pointer", border: `1.5px solid ${cardBorder}`, transition: "all 0.15s", position: "relative" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = isADADemo ? "#F59E0B" : isFastTrack ? GREEN : NAV; e.currentTarget.style.boxShadow = "0 4px 14px rgba(27,58,107,0.12)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = cardBorder; e.currentTarget.style.boxShadow = "0 1px 6px rgba(0,0,0,0.07)"; }}
               >
                 {isFastTrack && (
                   <div style={{ position: "absolute", top: -10, right: 12, background: GREEN, color: "white", fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 99, fontFamily: ff, letterSpacing: "0.05em" }}>
                     ⚡ 2-question demo
+                  </div>
+                )}
+                {isADADemo && (
+                  <div style={{ position: "absolute", top: -10, right: 12, background: "#D97706", color: "white", fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 99, fontFamily: ff, letterSpacing: "0.05em" }}>
+                    ⚠ ADA demo claim
                   </div>
                 )}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
@@ -2658,6 +2735,7 @@ function ClaimSelector({ claims, onSelect, onBack }) {
                     {isEligible ? "✓ Eligible" : "⚠ Check eligibility"}
                   </span>
                   {isFastTrack && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: GBGL, color: GREEN, fontWeight: 600 }}>⚡ EN ready — 2 questions</span>}
+                  {isADADemo && <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 99, background: "#FEF3C7", color: "#92400E", fontWeight: 600 }}>⚠ ADA interaction — FMLA exhausts before leave ends</span>}
                 </div>
               </div>
             );
