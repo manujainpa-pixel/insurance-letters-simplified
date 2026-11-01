@@ -154,6 +154,9 @@ const defaultForm = {
   customOpening: "",
   customMidNote: "",
   customClosing: "",
+
+  // ── LETTER LANGUAGE ("en" | "es") ──
+  letterLanguage: "en",
 };
 
 // ─── SMALL UI HELPERS ─────────────────────────────────────────────────────────
@@ -262,41 +265,112 @@ const PartBadge = ({ label, color }) => (
   <span style={{ background: color || NAV, color: "white", borderRadius: 4, padding: "2px 9px", fontSize: 10, fontWeight: 700, fontFamily: ff, letterSpacing: "0.06em", marginRight: 8 }}>{label}</span>
 );
 
-// ─── GENERATED LETTER (CLAIMANT-FACING) ──────────────────────────────────────
-function GeneratedLetter({ f }) {
-  const qualifies   = f.fmlaEligible === "yes";
-  const approved    = f.isDesignated  === "yes";
-  const scope       = f.noticeScope || "combined";
-  const showEN      = scope === "en"  || scope === "combined";
-  const showDN      = scope === "dn"  || scope === "combined";
-  const stateCode   = (f.stateOfEmployment||"").includes("ME") ? "ME"
-                    : (f.stateOfEmployment||"").includes("TN") ? "TN" : null;
-  const weeksLeft   = Math.max(0, parseInt(f.fmlaEntitlementWeeks||12) - parseInt(f.fmlaUsedWeeks||0));
-  const maineLeft   = Math.max(0, parseInt(f.maineEntitlementWeeks||10) - parseInt(f.maineUsedWeeks||0));
-  const isSTD       = f.letterType === "std";
-  const isPFML      = f.letterType === "pfml";
-  const isBond      = (f.qualifyingReason||"").includes("Birth") || (f.qualifyingReason||"").includes("Adoption") || (f.qualifyingReason||"").includes("bonding");
-  const isMilitary  = (f.qualifyingReason||"").includes("exigency") || (f.qualifyingReason||"").includes("caregiver");
-  const firstName   = (f.employeeName||"").split(" ")[0] || "there";
+// ─── GENERATED LETTER (CLAIMANT-FACING, ENGLISH / SPANISH) ───────────────────
+// Every claimant-facing string is written as L(english, spanish) so the two
+// versions can be reviewed side by side. Operator-typed text (custom notes,
+// "reason not designated", program names) is printed exactly as entered.
+const MONTHS_ES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
 
-  // Plain-language reason description
-  const reasonPlain = (() => {
-    const r = (f.qualifyingReason||"").toLowerCase();
-    if (r.includes("own")) return "your own health";
-    if (r.includes("family member") || r.includes("spouse") || r.includes("parent") || r.includes("child")) return "caring for a family member";
-    if (r.includes("birth") || r.includes("bonding")) return "the birth of your child";
-    if (r.includes("adoption")) return "your adoption";
-    if (r.includes("exigency")) return "a family member's military service";
-    if (r.includes("caregiver")) return "caring for an injured service member";
-    return "your leave";
+const DELIVERY_ES = {
+  "Secure portal + email": "Portal seguro + correo electrónico",
+  "Certified mail": "Correo certificado",
+  "Email only": "Solo correo electrónico",
+  "Hand delivered": "Entrega en persona",
+};
+
+const PREMIUM_METHOD_ES = {
+  "Direct bill during leave": "Factura directa durante la licencia",
+  "Payroll deduction resumes on return": "La deducción de nómina se reanuda cuando regrese",
+  "Pre-payment arrangement": "Acuerdo de pago anticipado",
+  "Employer absorbs during leave": "El empleador cubre el costo durante la licencia",
+};
+
+const REASON_TEXT = {
+  own:       { plainEn: "your own health",                            plainEs: "su propia salud",                                           fullEs: "Una condición de salud grave propia" },
+  family:    { plainEn: "caring for a family member",                 plainEs: "el cuidado de un familiar",                                 fullEs: "Cuidado de su cónyuge o de un familiar con una condición de salud grave" },
+  birth:     { plainEn: "the birth of your child",                    plainEs: "el nacimiento de su hijo(a)",                               fullEs: "Nacimiento y vínculo con su recién nacido (dentro del primer año)" },
+  adoption:  { plainEn: "the adoption or foster placement of a child",plainEs: "la adopción o colocación en hogar de crianza de un niño(a)",fullEs: "Adopción o colocación en hogar de crianza (dentro del primer año)" },
+  exigency:  { plainEn: "a family member's military service",        plainEs: "el servicio militar de un familiar",                        fullEs: "Necesidad urgente relacionada con el servicio militar de un familiar" },
+  caregiver: { plainEn: "caring for an injured service member",      plainEs: "el cuidado de un miembro del servicio militar herido(a)",   fullEs: "Licencia como cuidador de un miembro del servicio militar" },
+  other:     { plainEn: "your leave",                                 plainEs: "su licencia",                                               fullEs: null },
+};
+
+function GeneratedLetter({ f }) {
+  const es = (f.letterLanguage || "en") === "es";
+  const L  = (en, sp) => (es ? sp : en);
+
+  // Spanish dates: "7 de julio de 2026". English keeps the value as entered.
+  const D = (s) => {
+    if (!es || !s) return s;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    return m ? `${parseInt(m[3], 10)} de ${MONTHS_ES[parseInt(m[2], 10) - 1]} de ${m[1]}` : s;
+  };
+  const wk = (n) => (es ? (n === 1 ? "semana" : "semanas") : (n === 1 ? "week" : "weeks"));
+  const wd = (n) => (es ? (n === 1 ? "día hábil" : "días hábiles") : (n === 1 ? "working day" : "working days"));
+
+  const qualifies = f.fmlaEligible === "yes";
+  const approved  = f.isDesignated === "yes";
+  const scope     = f.noticeScope || "combined";
+  const showEN    = scope === "en" || scope === "combined";
+  const showDN    = scope === "dn" || scope === "combined";
+  const stateCode = (f.stateOfEmployment || "").includes("ME") ? "ME"
+                  : (f.stateOfEmployment || "").includes("TN") ? "TN" : null;
+  const entWks    = f.fmlaEntitlementWeeks || 12;
+  const usedWks   = parseInt(f.fmlaUsedWeeks || 0);
+  const weeksLeft = Math.max(0, parseInt(entWks) - usedWks);
+  const meEnt     = f.maineEntitlementWeeks || 10;
+  const meUsed    = parseInt(f.maineUsedWeeks || 0);
+  const maineLeft = Math.max(0, parseInt(meEnt) - meUsed);
+  const isSTD     = f.letterType === "std";
+  const isPFML    = f.letterType === "pfml";
+
+  const r = (f.qualifyingReason || "").toLowerCase();
+  const kind = r.includes("exigency") ? "exigency"
+    : r.includes("caregiver") ? "caregiver"
+    : r.includes("adoption") ? "adoption"
+    : (r.includes("birth") || r.includes("bonding")) ? "birth"
+    : (r.includes("family member") || r.includes("spouse")) ? "family"
+    : r.includes("own") ? "own" : "other";
+  const isBond = kind === "birth" || kind === "adoption";
+  const reasonPlain = L(REASON_TEXT[kind].plainEn, REASON_TEXT[kind].plainEs);
+  const reasonFull  = es ? (REASON_TEXT[kind].fullEs || f.qualifyingReason) : f.qualifyingReason;
+
+  const greetName = (f.employeeName || "").split(" ")[0];
+  const hrName    = f.hrContactName || L("HR", "Recursos Humanos");
+  const phone     = f.adminPhone || f.hrPhone || L("the number above", "el número indicado arriba");
+  const hrPhone   = f.hrPhone || f.adminPhone || L("the number above", "el número indicado arriba");
+  const paidTypes = (!f.paidLeaveTypes || f.paidLeaveTypes === "Accrued sick leave and PTO")
+    ? L("sick days and vacation time", "días de enfermedad y vacaciones")
+    : f.paidLeaveTypes;
+  const premMethod = f.premiumPaymentMethod
+    ? L(f.premiumPaymentMethod, PREMIUM_METHOD_ES[f.premiumPaymentMethod] || f.premiumPaymentMethod)
+    : L("contact HR", "comuníquese con Recursos Humanos");
+  const returnDate = f.anticipatedReturn || f.leaveEnd;
+  const days = parseInt(f.contactDaysBeforeReturn || 0);
+
+  const leaveTypeText = f.leaveType === "Continuous"
+    ? L("Continuous — a single block of time", "Continua — un solo período de tiempo")
+    : f.leaveType === "Intermittent"
+    ? L(`Intermittent — taken in separate periods${f.intermittentFrequency ? ` (${f.intermittentFrequency})` : ""}`,
+        `Intermitente — en períodos separados${f.intermittentFrequency ? ` (${f.intermittentFrequency})` : ""}`)
+    : L("Reduced schedule", "Horario reducido");
+
+  // Day the disability pay begins (leave start + waiting period)
+  const stdStart = (() => {
+    try {
+      const d = new Date(`${f.leaveStart}T00:00:00`);
+      if (isNaN(d)) return null;
+      d.setDate(d.getDate() + parseInt(f.stdEliminationDays));
+      return d.toLocaleDateString(es ? "es-US" : "en-US", es ? { day: "numeric", month: "long" } : { month: "long", day: "numeric" });
+    } catch { return null; }
   })();
 
   // Typography
-  const body  = { fontSize: 13.5, color: "#1a1a1a", lineHeight: 1.85, fontFamily: "Georgia, serif", margin: "0 0 16px" };
-  const small = { fontSize: 12.5, color: "#444",    lineHeight: 1.7,  fontFamily: "Georgia, serif", margin: "0 0 12px" };
-  const lbl   = { fontSize: 10.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#555", fontFamily: ff, display: "block", margin: "0 0 5px" };
-  const rule  = { border: "none", borderTop: "1px solid #e0e0e0", margin: "20px 0" };
-  const indent= { paddingLeft: 18, borderLeft: "2px solid #ddd", margin: "0 0 16px" };
+  const body   = { fontSize: 13.5, color: "#1a1a1a", lineHeight: 1.85, fontFamily: "Georgia, serif", margin: "0 0 16px" };
+  const small  = { fontSize: 12.5, color: "#444", lineHeight: 1.7, fontFamily: "Georgia, serif", margin: "0 0 12px" };
+  const lbl    = { fontSize: 10.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "#555", fontFamily: ff, display: "block", margin: "0 0 5px" };
+  const rule   = { border: "none", borderTop: "1px solid #e0e0e0", margin: "20px 0" };
+  const indent = { paddingLeft: 18, borderLeft: "2px solid #ddd", margin: "0 0 16px" };
 
   const Row = ({ l, v }) => v ? (
     <div style={{ display: "grid", gridTemplateColumns: "170px 1fr", gap: "0 12px", marginBottom: 8 }}>
@@ -304,6 +378,11 @@ function GeneratedLetter({ f }) {
       <span style={{ fontSize: 13.5, color: "#1a1a1a", fontFamily: "Georgia, serif" }}>{v}</span>
     </div>
   ) : null;
+
+  const title = showEN && showDN ? L("About Your Time Away from Work", "Sobre su tiempo fuera del trabajo")
+    : showEN ? L("About Your Request for Time Off", "Sobre su solicitud de licencia")
+    : approved ? L("Your Time Away from Work — Approved", "Su licencia — Aprobada")
+    : L("Your Time Away from Work — Our Decision", "Su licencia — Nuestra decisión");
 
   return (
     <div style={{ fontFamily: "Georgia, serif", maxWidth: 680, margin: "0 auto", color: "#1a1a1a" }}>
@@ -313,17 +392,13 @@ function GeneratedLetter({ f }) {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
           <div>
             <p style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#666", fontFamily: ff, margin: "0 0 4px" }}>
-              {f.adminName || "Leave Administrator"} · On behalf of {f.employerName || "your employer"}
+              {f.adminName || L("Leave Administrator", "Administrador de licencias")} · {L("On behalf of", "En nombre de")} {f.employerName || L("your employer", "su empleador")}
             </p>
-            <p style={{ fontSize: 19, fontWeight: 700, color: "#1a1a1a", margin: "0 0 2px", lineHeight: 1.2, fontFamily: "Georgia, serif" }}>
-              {showEN && showDN ? "About Your Time Away from Work"
-               : showEN ? "About Your Request for Time Off"
-               : "Your Time Away from Work — Approved"}
-            </p>
+            <p style={{ fontSize: 19, fontWeight: 700, color: "#1a1a1a", margin: "0 0 2px", lineHeight: 1.2, fontFamily: "Georgia, serif" }}>{title}</p>
           </div>
           <div style={{ textAlign: "right" }}>
-            <p style={{ fontSize: 12, color: "#888", fontFamily: ff, margin: "0 0 2px" }}>{f.generatedDate}</p>
-            <p style={{ fontSize: 11, color: "#aaa", fontFamily: ff, margin: 0 }}>Ref: {f.claimNumber}</p>
+            <p style={{ fontSize: 12, color: "#888", fontFamily: ff, margin: "0 0 2px" }}>{D(f.generatedDate)}</p>
+            <p style={{ fontSize: 11, color: "#aaa", fontFamily: ff, margin: 0 }}>{L("Ref", "Ref.")}: {f.claimNumber}</p>
           </div>
         </div>
       </div>
@@ -331,17 +406,17 @@ function GeneratedLetter({ f }) {
       {/* ── FROM / TO ── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 22 }}>
         <div>
-          <span style={lbl}>From</span>
+          <span style={lbl}>{L("From", "De")}</span>
           <p style={{ ...small, margin: 0, lineHeight: 1.7 }}>
-            {f.adminName || f.hrContactName || "Your Leave Team"}<br />
+            {f.adminName || f.hrContactName || L("Your Leave Team", "Su equipo de licencias")}<br />
             {f.adminPhone && <>{f.adminPhone}<br /></>}
             {f.adminEmail && <>{f.adminEmail}</>}
           </p>
         </div>
         <div>
-          <span style={lbl}>To</span>
+          <span style={lbl}>{L("To", "Para")}</span>
           <p style={{ ...small, margin: 0, lineHeight: 1.7 }}>
-            {f.employeeName || "Employee"}<br />
+            {f.employeeName || L("Employee", "Empleado(a)")}<br />
             {f.position && <>{f.position}<br /></>}
             {f.employeeAddress && <>{f.employeeAddress}</>}
           </p>
@@ -351,385 +426,363 @@ function GeneratedLetter({ f }) {
       <hr style={rule} />
 
       {/* ── SALUTATION ── */}
-      <p style={body}>Dear {firstName},</p>
+      <p style={body}>
+        {greetName ? L(`Dear ${greetName},`, `Estimado(a) ${greetName}:`) : L("Hello,", "Hola:")}
+      </p>
 
-      {/* ── CUSTOM OPENING ── */}
+      {/* ── CUSTOM OPENING (Zone 1) ── */}
       {f.customOpening && <p style={{ ...body, fontStyle: "italic" }}>{f.customOpening}</p>}
 
-      {/* ══════════════════════════════════════════════════════════════
-          SECTION 1 — DO YOU QUALIFY? (EN scope)
-      ══════════════════════════════════════════════════════════════ */}
+      {/* ══════════ SECTION 1 — DO YOU QUALIFY? (EN scope) ══════════ */}
       {showEN && <>
         <p style={body}>
-          We received your request on <strong>{f.noticeReceived}</strong> for time away from work
-          because of <strong>{reasonPlain}</strong>.
-          We have reviewed your request and want to let you know where things stand.
+          {L(<>We received your request on <strong>{D(f.noticeReceived)}</strong> for time away from work because of <strong>{reasonPlain}</strong>. We have reviewed your request and want to let you know where things stand.</>,
+             <>Recibimos su solicitud el <strong>{D(f.noticeReceived)}</strong> para ausentarse del trabajo debido a <strong>{reasonPlain}</strong>. La hemos revisado y queremos informarle cómo va su caso.</>)}
         </p>
 
-        <p style={{ ...lbl, marginBottom: 8 }}>Do you qualify for job-protected leave?</p>
+        <p style={{ ...lbl, marginBottom: 8 }}>{L("Do you qualify for job-protected leave?", "¿Califica para una licencia con protección de su empleo?")}</p>
 
         {qualifies ? (<>
           <p style={body}>
-            <strong>Yes — your job is protected.</strong>{" "}
-            You qualify for up to <strong>{f.fmlaEntitlementWeeks || 12} weeks</strong> of job-protected
-            time off this year under a federal law called the Family and Medical Leave Act (FMLA).
-            This means your employer must hold your job — or an equivalent one — until you return.
-            You have used <strong>{f.fmlaUsedWeeks || 0} week{parseInt(f.fmlaUsedWeeks||0)!==1?"s":""}</strong> so
-            far this year, so you have <strong>{weeksLeft} week{weeksLeft!==1?"s":""} remaining</strong>.
+            {L(<><strong>Yes — your job is protected.</strong> You qualify for up to <strong>{entWks} weeks</strong> of job-protected time off this year under a federal law called the Family and Medical Leave Act (FMLA). This means your employer must hold your job — or an equivalent one — until you return. You have used <strong>{usedWks} {wk(usedWks)}</strong> so far this year, so you have <strong>{weeksLeft} {wk(weeksLeft)} remaining</strong>.</>,
+               <><strong>Sí — su empleo está protegido.</strong> Usted califica para hasta <strong>{entWks} semanas</strong> de licencia con protección de su empleo este año, bajo una ley federal llamada Ley de Licencia Familiar y Médica (FMLA, por sus siglas en inglés). Esto significa que su empleador debe mantener su puesto — o uno equivalente — hasta que usted regrese. Hasta ahora ha usado <strong>{usedWks} {wk(usedWks)}</strong> este año, por lo que {weeksLeft === 1 ? "le queda" : "le quedan"} <strong>{weeksLeft} {wk(weeksLeft)}</strong>.</>)}
           </p>
           {stateCode === "ME" && (
             <p style={body}>
-              You also qualify under Maine state law, which gives you up to <strong>{f.maineEntitlementWeeks || 10} weeks</strong> of
-              protected leave over any two-year period. You have used <strong>{f.maineUsedWeeks || 0} weeks</strong> of
-              your Maine time, leaving <strong>{maineLeft} week{maineLeft!==1?"s":""}</strong> available under state law.
-              Both protections apply at the same time — you do not get extra time by having both.
+              {L(<>You also qualify under Maine state law, which gives you up to <strong>{meEnt} weeks</strong> of protected leave over any two-year period. You have used <strong>{meUsed} weeks</strong> of your Maine time, leaving <strong>{maineLeft} {wk(maineLeft)}</strong> available under state law. Both protections apply at the same time — you do not get extra time by having both.</>,
+                 <>También califica bajo la ley estatal de Maine, que le da hasta <strong>{meEnt} semanas</strong> de licencia protegida en cualquier período de dos años. Ha usado <strong>{meUsed} semanas</strong> de su tiempo bajo la ley de Maine, por lo que {maineLeft === 1 ? "le queda" : "le quedan"} <strong>{maineLeft} {wk(maineLeft)}</strong> bajo la ley estatal. Ambas protecciones se aplican al mismo tiempo — tener ambas no le da tiempo adicional.</>)}
             </p>
           )}
           <div style={{ ...indent, borderColor: "#1a1a1a" }}>
-            <Row l="Your leave covers"    v={`${f.leaveStart}${f.leaveEnd ? ` to ${f.leaveEnd}` : " onward"}`} />
-            <Row l="Type of leave"        v={f.leaveType === "Continuous" ? "Continuous — a single block of time" : f.leaveType === "Intermittent" ? `Intermittent — taken in separate periods${f.intermittentFrequency ? ` (${f.intermittentFrequency})` : ""}` : "Reduced schedule"} />
-            <Row l="Reason"               v={f.qualifyingReason} />
-            <Row l="Time available"       v={`${weeksLeft} week${weeksLeft!==1?"s":""} remaining this leave year`} />
+            <Row l={L("Your leave covers", "Su licencia abarca")} v={f.leaveEnd ? L(`${f.leaveStart} to ${f.leaveEnd}`, `del ${D(f.leaveStart)} al ${D(f.leaveEnd)}`) : L(`${f.leaveStart} onward`, `a partir del ${D(f.leaveStart)}`)} />
+            <Row l={L("Type of leave", "Tipo de licencia")} v={leaveTypeText} />
+            <Row l={L("Reason", "Motivo")} v={reasonFull} />
+            <Row l={L("Time available", "Tiempo disponible")} v={L(`${weeksLeft} ${wk(weeksLeft)} remaining this leave year`, `${weeksLeft} ${wk(weeksLeft)} restantes este año de licencia`)} />
           </div>
         </>) : (<>
           <p style={body}>
-            <strong>Not at this time.</strong>{" "}
-            After reviewing your records, we found that you do not currently meet the requirements for
-            job-protected leave under federal law.
-            {[f.ineligMonths && " You need to have worked here for at least 12 months.",
-              f.ineligHours  && " You need to have worked at least 1,250 hours in the past 12 months (that is roughly 24 hours a week).",
-              f.ineligSize   && " The law applies to workplaces with 50 or more employees within 50 miles — your location may not meet this threshold."]
-              .filter(Boolean).join("")}
+            {L(<><strong>Not at this time.</strong> After reviewing your records, we found that you do not currently meet the requirements for job-protected leave under federal law.
+                {f.ineligMonths && " You need to have worked here for at least 12 months."}
+                {f.ineligHours && " You need to have worked at least 1,250 hours in the past 12 months (that is roughly 24 hours a week)."}
+                {f.ineligSize && " The law applies to workplaces with 50 or more employees within 75 miles — your location may not meet this requirement."}</>,
+               <><strong>Por ahora no.</strong> Después de revisar sus registros, encontramos que actualmente usted no cumple los requisitos para una licencia con protección de su empleo bajo la ley federal.
+                {f.ineligMonths && " Debe haber trabajado aquí por al menos 12 meses."}
+                {f.ineligHours && " Debe haber trabajado al menos 1,250 horas en los últimos 12 meses (aproximadamente 24 horas por semana)."}
+                {f.ineligSize && " La ley se aplica a lugares de trabajo con 50 o más empleados dentro de un radio de 75 millas — es posible que su lugar de trabajo no cumpla este requisito."}</>)}
           </p>
           <p style={body}>
-            This does not mean you have to come to work if you are unwell — please talk to
-            {f.hrContactName ? ` ${f.hrContactName}` : " HR"} at <strong>{f.hrPhone || f.adminPhone || "the number above"}</strong> about
-            what options are available to you.
+            {L(<>This does not mean you have to come to work if you are unwell — please talk to {hrName} at <strong>{hrPhone}</strong> about what options are available to you.</>,
+               <>Esto no significa que deba presentarse a trabajar si no se siente bien — por favor hable con {hrName} al <strong>{hrPhone}</strong> sobre las opciones disponibles para usted.</>)}
           </p>
         </>)}
       </>}
 
-      {/* ══════════════════════════════════════════════════════════════
-          SECTION 2 — IS YOUR LEAVE APPROVED? (DN scope)
-      ══════════════════════════════════════════════════════════════ */}
+      {/* ══════════ SECTION 2 — IS YOUR LEAVE APPROVED? (DN scope) ══════════ */}
       {showDN && <>
         {showEN && <hr style={rule} />}
 
         {scope === "dn" && (
           <p style={{ ...small, color: "#888" }}>
-            We sent you a separate letter on {f.noticeReceived} about whether you qualify for
-            job-protected leave. This letter is to tell you what we have decided about your specific
-            request.
+            {L(`We sent you a separate letter on ${f.noticeReceived} about whether you qualify for job-protected leave. This letter is to tell you what we have decided about your specific request.`,
+               `Le enviamos una carta aparte el ${D(f.noticeReceived)} sobre si usted califica para una licencia con protección de su empleo. Esta carta es para informarle lo que hemos decidido sobre su solicitud específica.`)}
           </p>
         )}
 
-        <p style={{ ...lbl, marginBottom: 8 }}>Is your time off approved?</p>
+        <p style={{ ...lbl, marginBottom: 8 }}>{L("Is your time off approved?", "¿Está aprobada su licencia?")}</p>
 
-        {approved ? (<>
+        {approved ? (
           <p style={body}>
-            <strong>Yes — your time off is approved.</strong>{" "}
-            Your leave from <strong>{f.leaveStart}</strong>{f.leaveEnd ? ` to ${f.leaveEnd}` : ""} is
-            covered and your job is protected during this time.
-            {f.weeksCountedFmla && ` This counts as ${f.weeksCountedFmla} week${parseInt(f.weeksCountedFmla)!==1?"s":""} toward your total time available this year.`}
-            {stateCode === "ME" && " Your time off is covered under both federal law and Maine state law at the same time."}
+            {L(<><strong>Yes — your time off is approved.</strong> Your leave from <strong>{f.leaveStart}</strong>{f.leaveEnd ? ` to ${f.leaveEnd}` : ""} is covered and your job is protected during this time.
+                {f.weeksCountedFmla && ` This counts as ${f.weeksCountedFmla} ${wk(parseInt(f.weeksCountedFmla))} toward your total time available this year.`}
+                {stateCode === "ME" && " Your time off is covered under both federal law and Maine state law at the same time."}</>,
+               <><strong>Sí — su licencia está aprobada.</strong> Su licencia del <strong>{D(f.leaveStart)}</strong>{f.leaveEnd ? ` al ${D(f.leaveEnd)}` : ""} está cubierta y su empleo está protegido durante este tiempo.
+                {f.weeksCountedFmla && ` Esto cuenta como ${f.weeksCountedFmla} ${wk(parseInt(f.weeksCountedFmla))} del total de tiempo disponible este año.`}
+                {stateCode === "ME" && " Su licencia está cubierta por la ley federal y por la ley estatal de Maine al mismo tiempo."}</>)}
           </p>
-        </>) : (<>
+        ) : (<>
           <p style={body}>
-            <strong>We are not able to approve this request for job-protected leave.</strong>{" "}
-            {f.nonDesignationReason ? f.nonDesignationReason + "." : "Please contact us to discuss your situation."}
+            {L(<><strong>We are not able to approve this request for job-protected leave.</strong> {f.nonDesignationReason ? f.nonDesignationReason + "." : "Please contact us to discuss your situation."}</>,
+               <><strong>No podemos aprobar esta solicitud de licencia con protección de su empleo.</strong> {f.nonDesignationReason ? f.nonDesignationReason + "." : "Por favor comuníquese con nosotros para hablar sobre su situación."}</>)}
           </p>
           <p style={body}>
-            Please call us at <strong>{f.adminPhone || f.hrPhone || "the number above"}</strong> — we
-            want to make sure you have the support you need.
+            {L(<>Please call us at <strong>{phone}</strong> — we want to make sure you have the support you need.</>,
+               <>Por favor llámenos al <strong>{phone}</strong> — queremos asegurarnos de que reciba el apoyo que necesita.</>)}
           </p>
         </>)}
 
-        {/* ── CUSTOM MID-NOTE ── */}
+        {/* ── CUSTOM MID-NOTE (Zone 2) ── */}
         {f.customMidNote && <><hr style={rule} /><p style={{ ...body, fontStyle: "italic" }}>{f.customMidNote}</p></>}
 
-        {/* ── DOCTOR'S NOTE ── */}
+        {/* ── DOCTOR'S PAPERWORK ── */}
         {f.medCertRequired === "yes" && (<>
           <hr style={rule} />
-          <p style={{ ...lbl, marginBottom: 8 }}>Do we need paperwork from your doctor?</p>
+          <p style={{ ...lbl, marginBottom: 8 }}>{L("Do we need paperwork from your doctor?", "¿Necesitamos documentos de su médico?")}</p>
           {f.medCertStatus === "Received — Sufficient" ? (
             <p style={body}>
-              <strong>No, we have everything we need.</strong>{" "}
-              We received your doctor's paperwork and it has everything we need. You do not need to
-              send anything else right now.
-              {f.providerName && ` Thank you for having ${f.providerName} complete that for us.`}
+              {L(<><strong>No, we have everything we need.</strong> We received your doctor's paperwork and it has everything we need. You do not need to send anything else right now.{f.providerName && ` Thank you for having ${f.providerName} complete that for us.`}</>,
+                 <><strong>No, tenemos todo lo que necesitamos.</strong> Recibimos los documentos de su médico y están completos. No necesita enviar nada más por ahora.{f.providerName && ` Gracias por pedirle a ${f.providerName} que los completara.`}</>)}
             </p>
           ) : f.medCertStatus === "Pending" ? (<>
             <p style={body}>
-              <strong>Yes — please ask your doctor to complete a form.</strong>{" "}
-              We need paperwork from your doctor to confirm the medical reason for your leave.
-              Please have your doctor fill out the form we have enclosed with this letter and
-              return it to us by <strong>{f.medCertDueDate}</strong>.
+              {L(<><strong>Yes — please ask your doctor to complete a form.</strong> We need paperwork from your doctor to confirm the medical reason for your leave. Please have your doctor fill out the form we have enclosed with this letter and return it to us by <strong>{f.medCertDueDate}</strong>.</>,
+                 <><strong>Sí — por favor pida a su médico que complete un formulario.</strong> Necesitamos documentos de su médico para confirmar el motivo médico de su licencia. Por favor pida a su médico que llene el formulario que incluimos con esta carta y nos lo devuelva a más tardar el <strong>{D(f.medCertDueDate)}</strong>.</>)}
             </p>
             <p style={body}>
-              If 15 days is not enough time, please call us before the deadline and we can work
-              something out. If we do not receive it in time, we may need to pause or reconsider
-              your leave approval.
+              {L("If 15 days is not enough time, please call us before the deadline and we can work something out. If we do not receive it in time, we may need to pause or reconsider your leave approval.",
+                 "Si 15 días no son suficientes, llámenos antes de la fecha límite y buscaremos una solución. Si no lo recibimos a tiempo, es posible que tengamos que suspender o reconsiderar la aprobación de su licencia.")}
             </p>
           </>) : f.medCertStatus === "Received — Insufficient" ? (
             <p style={body}>
-              <strong>We received paperwork from your doctor, but we need a little more information.</strong>{" "}
-              We will contact you separately to let you know exactly what is missing. Please do not
-              worry — this is common and easy to fix.
+              {L(<><strong>We received paperwork from your doctor, but we need a little more information.</strong> We will contact you separately to let you know exactly what is missing. Please do not worry — this is common and easy to fix.</>,
+                 <><strong>Recibimos los documentos de su médico, pero necesitamos un poco más de información.</strong> Nos comunicaremos con usted por separado para decirle exactamente qué falta. No se preocupe — esto es común y fácil de resolver.</>)}
             </p>
           ) : (
             <p style={body}>
-              Your doctor's paperwork status: <strong>{f.medCertStatus}</strong>.
-              Please contact us at <strong>{f.adminPhone || f.hrPhone || "the number above"}</strong> if
-              you have any questions.
+              {L(<>Your doctor's paperwork status: <strong>{f.medCertStatus}</strong>. Please contact us at <strong>{phone}</strong> if you have any questions.</>,
+                 <>Estado de los documentos de su médico: <strong>{f.medCertStatus === "Overdue" ? "Atrasados" : f.medCertStatus}</strong>. Por favor comuníquese con nosotros al <strong>{phone}</strong> si tiene alguna pregunta.</>)}
             </p>
           )}
           {f.recertRequired === "yes" && f.recertDate && (
             <p style={body}>
-              We may ask your doctor to update that paperwork around <strong>{f.recertDate}</strong>.
-              We will remind you when that time comes.
+              {L(<>We may ask your doctor to update that paperwork around <strong>{f.recertDate}</strong>. We will remind you when that time comes.</>,
+                 <>Es posible que le pidamos a su médico que actualice esos documentos alrededor del <strong>{D(f.recertDate)}</strong>. Le avisaremos cuando llegue el momento.</>)}
             </p>
           )}
         </>)}
 
         {/* ── PAID TIME OFF ── */}
         <hr style={rule} />
-        <p style={{ ...lbl, marginBottom: 8 }}>What happens to your paid time off?</p>
+        <p style={{ ...lbl, marginBottom: 8 }}>{L("What happens to your paid time off?", "¿Qué pasa con sus días pagados de vacaciones o enfermedad?")}</p>
         {f.paidLeaveConcurrent === "yes" && !isSTD ? (
           <p style={body}>
-            While you are away, we will use your saved-up {f.paidLeaveTypes || "sick days and vacation time"}
-            {" "}at the same time as your protected leave. This does not give you extra time off —
-            it just means part of your leave may be paid instead of unpaid.
+            {L(`While you are away, we will use your saved-up ${paidTypes} at the same time as your protected leave. This does not give you extra time off — it just means part of your leave may be paid instead of unpaid.`,
+               `Mientras esté ausente, usaremos sus ${paidTypes} acumulados al mismo tiempo que su licencia protegida. Esto no le da tiempo libre adicional — solo significa que una parte de su licencia puede ser pagada en lugar de no pagada.`)}
           </p>
         ) : isSTD ? (
           <p style={body}>
-            Because you are receiving disability pay while you are away, we will not require you
-            to use your saved-up vacation or sick time at the same time.
+            {L("Because you are receiving disability pay while you are away, we will not require you to use your saved-up vacation or sick time at the same time.",
+               "Como usted recibe pago por incapacidad mientras está ausente, no le exigiremos que use sus días de vacaciones o enfermedad acumulados al mismo tiempo.")}
           </p>
         ) : (
           <p style={body}>
-            You are not required to use your saved-up vacation or sick days during this leave.
-            Your leave will be unpaid unless you choose to use your paid time.
+            {L("You are not required to use your saved-up vacation or sick days during this leave. Your leave will be unpaid unless you choose to use your paid time.",
+               "No está obligado(a) a usar sus días de vacaciones o enfermedad acumulados durante esta licencia. Su licencia no será pagada, a menos que usted decida usar sus días pagados.")}
           </p>
         )}
 
-        {/* ── STD SECTION ── */}
+        {/* ── DISABILITY PAY (STD) ── */}
         {isSTD && (<>
           <hr style={rule} />
-          <p style={{ ...lbl, marginBottom: 8 }}>Your pay while you are away</p>
+          <p style={{ ...lbl, marginBottom: 8 }}>{L("Your pay while you are away", "Su pago mientras está ausente")}</p>
           <p style={body}>
-            Good news — you have disability pay coverage that will replace part of your income
-            while you recover. Here is what you can expect:
+            {L("Good news — you have disability pay coverage that will replace part of your income while you recover. Here is what you can expect:",
+               "Buenas noticias — usted tiene cobertura de pago por incapacidad que reemplazará parte de sus ingresos mientras se recupera. Esto es lo que puede esperar:")}
           </p>
           <div style={indent}>
-            {f.stdCarrierName   && <Row l="Provided by"       v={f.stdCarrierName} />}
-            {f.stdClaimNumber   && <Row l="Your claim number" v={f.stdClaimNumber} />}
-            {f.stdEliminationDays && <Row l="When it starts"  v={`After ${f.stdEliminationDays} days away from work — so payments begin around ${(() => { try { const d = new Date(f.leaveStart); d.setDate(d.getDate() + parseInt(f.stdEliminationDays)); return d.toLocaleDateString("en-US",{month:"long",day:"numeric"}); } catch{ return `${f.stdEliminationDays} days after your leave begins`; } })()}`} />}
-            {f.stdWeeklyBenefit && <Row l="Amount per week"   v={`$${parseFloat(f.stdWeeklyBenefit).toLocaleString("en-US",{minimumFractionDigits:2})} (${f.stdBenefitPct||60}% of your salary)`} />}
-            {f.stdMaxDurationWeeks && <Row l="For up to"      v={`${f.stdMaxDurationWeeks} weeks`} />}
+            {f.stdCarrierName && <Row l={L("Provided by", "Proporcionado por")} v={f.stdCarrierName} />}
+            {f.stdClaimNumber && <Row l={L("Your claim number", "Su número de reclamo")} v={f.stdClaimNumber} />}
+            {f.stdEliminationDays && <Row l={L("When it starts", "Cuándo comienza")} v={stdStart
+              ? L(`After ${f.stdEliminationDays} days away from work — so payments begin around ${stdStart}`, `Después de ${f.stdEliminationDays} días fuera del trabajo — los pagos comienzan alrededor del ${stdStart}`)
+              : L(`${f.stdEliminationDays} days after your leave begins`, `${f.stdEliminationDays} días después de que comience su licencia`)} />}
+            {f.stdWeeklyBenefit && <Row l={L("Amount per week", "Monto por semana")} v={L(
+              `$${parseFloat(f.stdWeeklyBenefit).toLocaleString("en-US", { minimumFractionDigits: 2 })} (${f.stdBenefitPct || 60}% of your salary)`,
+              `$${parseFloat(f.stdWeeklyBenefit).toLocaleString("en-US", { minimumFractionDigits: 2 })} (${f.stdBenefitPct || 60}% de su salario)`)} />}
+            {f.stdMaxDurationWeeks && <Row l={L("For up to", "Por hasta")} v={`${f.stdMaxDurationWeeks} ${wk(parseInt(f.stdMaxDurationWeeks))}`} />}
           </div>
           {f.stdOffsetSources && (
             <p style={small}>
-              If you are receiving other income while on leave (such as workers' compensation),
-              your disability pay may be reduced by that amount.
+              {L("If you are receiving other income while on leave (such as workers' compensation), your disability pay may be reduced by that amount.",
+                 "Si recibe otros ingresos durante su licencia (como compensación para trabajadores), su pago por incapacidad podría reducirse por esa cantidad.")}
             </p>
           )}
           {f.stdBridgeToLtd === "yes" && (
             <p style={body}>
-              If you are still unable to work after your disability pay runs out, you may be
-              able to apply for longer-term coverage.
-              {f.ltdClaimNumber ? ` A file has already been started (${f.ltdClaimNumber}).` : " Talk to HR about your options if that situation arises."}
+              {L(`If you are still unable to work after your disability pay runs out, you may be able to apply for longer-term coverage.${f.ltdClaimNumber ? ` A file has already been started (${f.ltdClaimNumber}).` : " Talk to HR about your options if that situation arises."}`,
+                 `Si todavía no puede trabajar cuando termine su pago por incapacidad, es posible que pueda solicitar una cobertura a más largo plazo.${f.ltdClaimNumber ? ` Ya se abrió un expediente (${f.ltdClaimNumber}).` : " Hable con Recursos Humanos sobre sus opciones si se presenta esa situación."}`)}
             </p>
           )}
           <p style={body}>
-            Your job protection under federal law lasts up to {f.fmlaEntitlementWeeks || 12} weeks.
-            Your disability pay may last longer than that — if so, talk to us before that date
-            so we can discuss your options together.
+            {L(`Your job protection under federal law lasts up to ${entWks} weeks. Your disability pay may last longer than that — if so, talk to us before that date so we can discuss your options together.`,
+               `La protección de su empleo bajo la ley federal dura hasta ${entWks} semanas. Su pago por incapacidad podría durar más que eso — si es así, hable con nosotros antes de esa fecha para que podamos analizar juntos sus opciones.`)}
           </p>
         </>)}
 
-        {/* ── PFML SECTION ── */}
+        {/* ── PAID LEAVE BENEFIT (PFML) ── */}
         {isPFML && (<>
           <hr style={rule} />
-          <p style={{ ...lbl, marginBottom: 8 }}>Your paid leave benefit</p>
+          <p style={{ ...lbl, marginBottom: 8 }}>{L("Your paid leave benefit", "Su beneficio de licencia pagada")}</p>
           <p style={body}>
-            Along with having your job protected, you also have a paid leave benefit available
-            through {f.pfmlProgram || "the state paid family leave program"}.
-            This will replace part of your income while you are away.
-            Your job protection and your paid benefit run at the same time —
-            having the paid benefit does not give you extra time off beyond what is already approved.
+            {L(`Along with having your job protected, you also have a paid leave benefit available through ${f.pfmlProgram || "the state paid family leave program"}. This will replace part of your income while you are away. Your job protection and your paid benefit run at the same time — having the paid benefit does not give you extra time off beyond what is already approved.`,
+               `Además de tener su empleo protegido, usted tiene un beneficio de licencia pagada disponible a través de ${f.pfmlProgram || "el programa estatal de licencia familiar pagada"}. Este beneficio reemplazará parte de sus ingresos mientras está ausente. La protección de su empleo y su beneficio pagado corren al mismo tiempo — tener el beneficio pagado no le da tiempo libre adicional más allá de lo ya aprobado.`)}
           </p>
           <div style={indent}>
-            {f.pfmlProgram        && <Row l="Program"          v={f.pfmlProgram} />}
-            {f.pfmlClaimNumber    && <Row l="Your claim number" v={f.pfmlClaimNumber} />}
-            {f.pfmlAdminContact   && <Row l="Administered by"  v={f.pfmlAdminContact} />}
-            {f.pfmlWaitingDays    && <Row l="When it starts"   v={`After ${f.pfmlWaitingDays} days`} />}
-            {f.pfmlWeeklyBenefit  && <Row l="Amount per week"  v={`$${parseFloat(f.pfmlWeeklyBenefit).toLocaleString("en-US",{minimumFractionDigits:2})} (${f.pfmlBenefitPct||60}% of your wages)`} />}
-            {f.pfmlWeeksAvailable && <Row l="Available for"    v={`${f.pfmlWeeksAvailable} weeks`} />}
+            {f.pfmlProgram && <Row l={L("Program", "Programa")} v={f.pfmlProgram} />}
+            {f.pfmlClaimNumber && <Row l={L("Your claim number", "Su número de reclamo")} v={f.pfmlClaimNumber} />}
+            {f.pfmlAdminContact && <Row l={L("Administered by", "Administrado por")} v={f.pfmlAdminContact} />}
+            {f.pfmlWaitingDays && <Row l={L("When it starts", "Cuándo comienza")} v={L(`After ${f.pfmlWaitingDays} days`, `Después de ${f.pfmlWaitingDays} días`)} />}
+            {f.pfmlWeeklyBenefit && <Row l={L("Amount per week", "Monto por semana")} v={L(
+              `$${parseFloat(f.pfmlWeeklyBenefit).toLocaleString("en-US", { minimumFractionDigits: 2 })} (${f.pfmlBenefitPct || 60}% of your wages)`,
+              `$${parseFloat(f.pfmlWeeklyBenefit).toLocaleString("en-US", { minimumFractionDigits: 2 })} (${f.pfmlBenefitPct || 60}% de su salario)`)} />}
+            {f.pfmlWeeksAvailable && <Row l={L("Available for", "Disponible por")} v={`${f.pfmlWeeksAvailable} ${wk(parseInt(f.pfmlWeeksAvailable))}`} />}
           </div>
           {stateCode === "ME" && (
             <p style={body}>
-              Maine's paid leave program does not require you to use your saved-up vacation or
-              sick time first. Your benefits at work continue to build up as if you were still
-              on the job.
+              {L("Maine's paid leave program does not require you to use your saved-up vacation or sick time first. Your benefits at work continue to build up as if you were still on the job.",
+                 "El programa de licencia pagada de Maine no le exige que use primero sus días de vacaciones o enfermedad acumulados. Sus beneficios laborales continúan acumulándose como si siguiera trabajando.")}
             </p>
           )}
           {f.pfmlClaimFiled !== "yes" && (
             <p style={body}>
-              <strong>Action needed:</strong> You still need to apply for this paid benefit separately.
-              Please contact <strong>{f.pfmlAdminContact || "the program administrator"}</strong> as
-              soon as possible — waiting does not extend the time you have available.
+              {L(<><strong>Action needed:</strong> You still need to apply for this paid benefit separately. Please contact <strong>{f.pfmlAdminContact || "the program administrator"}</strong> as soon as possible — waiting does not extend the time you have available.</>,
+                 <><strong>Acción necesaria:</strong> Usted todavía debe solicitar este beneficio pagado por separado. Por favor comuníquese con <strong>{f.pfmlAdminContact || "el administrador del programa"}</strong> lo antes posible — esperar no extiende el tiempo que tiene disponible.</>)}
             </p>
           )}
         </>)}
 
         {/* ── COMING BACK TO WORK ── */}
         <hr style={rule} />
-        <p style={{ ...lbl, marginBottom: 8 }}>Coming back to work</p>
+        <p style={{ ...lbl, marginBottom: 8 }}>{L("Coming back to work", "Su regreso al trabajo")}</p>
         <p style={body}>
-          We expect to see you back on or around <strong>{f.anticipatedReturn || f.leaveEnd || "the end of your approved leave"}</strong>.
-          {f.contactDaysBeforeReturn && ` Please give ${f.hrContactName || "HR"} a call at least ${f.contactDaysBeforeReturn} working day${parseInt(f.contactDaysBeforeReturn)!==1?"s":""} before you plan to come back so we can get everything ready.`}
+          {L(<>We expect to see you back on or around <strong>{returnDate || "the end of your approved leave"}</strong>.{days ? ` Please give ${hrName} a call at least ${days} ${wd(days)} before you plan to come back so we can get everything ready.` : ""}</>,
+             <>Esperamos que regrese alrededor del <strong>{D(returnDate) || "final de su licencia aprobada"}</strong>.{days ? ` Por favor llame a ${hrName} al menos ${days} ${wd(days)} antes de la fecha en que planea regresar para que podamos preparar todo.` : ""}</>)}
         </p>
         {f.fitForDutyRequired === "yes" && (
           <p style={body}>
-            Before your first day back, <strong>you will need a note from your doctor</strong> saying
-            you are ready to return to work
-            {f.fitForDutyEssentialFunctions === "yes" ? " and can do the main parts of your job" : ""}.
-            Please bring that note with you or send it to HR before your return date.
+            {L(<>Before your first day back, <strong>you will need a note from your doctor</strong> saying you are ready to return to work{f.fitForDutyEssentialFunctions === "yes" ? " and can do the main parts of your job" : ""}. Please bring that note with you or send it to HR before your return date.</>,
+               <>Antes de su primer día de regreso, <strong>necesitará una nota de su médico</strong> que diga que está listo(a) para volver a trabajar{f.fitForDutyEssentialFunctions === "yes" ? " y puede hacer las partes principales de su trabajo" : ""}. Por favor traiga esa nota o envíela a Recursos Humanos antes de su fecha de regreso.</>)}
           </p>
         )}
 
-        {/* ── YOUR HEALTH INSURANCE ── */}
+        {/* ── HEALTH INSURANCE ── */}
         <hr style={rule} />
-        <p style={{ ...lbl, marginBottom: 8 }}>Your health insurance while you are away</p>
+        <p style={{ ...lbl, marginBottom: 8 }}>{L("Your health insurance while you are away", "Su seguro médico mientras está ausente")}</p>
         <p style={body}>
-          Your health insurance <strong>stays active</strong> while you are on leave, exactly as it
-          is now. Nothing changes about your coverage.
+          {L(<>Your health insurance <strong>stays active</strong> while you are on leave, exactly as it is now. Nothing changes about your coverage.</>,
+             <>Su seguro médico <strong>sigue activo</strong> mientras esté de licencia, tal como está ahora. Nada cambia en su cobertura.</>)}
         </p>
         {f.employeePremiumShare && (
           <p style={body}>
-            You will need to keep paying your share of the health insurance cost, which is{" "}
-            <strong>${f.employeePremiumShare}</strong>. Payment arrangement: {f.premiumPaymentMethod || "contact HR"}.
-            If a payment is missed, your coverage could be paused after a 30-day notice — so please
-            reach out to us if you think you might have trouble keeping up with payments.
+            {L(<>You will need to keep paying your share of the health insurance cost, which is <strong>${f.employeePremiumShare}</strong>. Payment arrangement: {premMethod}. If a payment is missed, your coverage could be paused after a 30-day notice — so please reach out to us if you think you might have trouble keeping up with payments.</>,
+               <>Deberá seguir pagando su parte del costo del seguro médico, que es de <strong>${f.employeePremiumShare}</strong>. Forma de pago: {premMethod}. Si se omite un pago, su cobertura podría suspenderse después de un aviso de 30 días — por lo tanto, comuníquese con nosotros si cree que podría tener dificultades para mantener sus pagos al día.</>)}
           </p>
         )}
 
         {/* ── YOUR RIGHTS ── */}
         <hr style={rule} />
-        <p style={{ ...lbl, marginBottom: 8 }}>What are your rights?</p>
+        <p style={{ ...lbl, marginBottom: 8 }}>{L("What are your rights?", "¿Cuáles son sus derechos?")}</p>
         <div style={indent}>
           <p style={{ ...body, margin: "0 0 10px" }}>
-            <strong>Your job is safe.</strong> When you come back, you have the right to return
-            to the same job — or one that is equivalent in pay, schedule, and benefits.
+            {L(<><strong>Your job is safe.</strong> When you come back, you have the right to return to the same job — or one that is equivalent in pay, schedule, and benefits.</>,
+               <><strong>Su empleo está seguro.</strong> Cuando regrese, tiene derecho a volver al mismo puesto — o a uno equivalente en sueldo, horario y beneficios.</>)}
           </p>
           <p style={{ ...body, margin: "0 0 10px" }}>
-            <strong>You cannot be punished for taking this time.</strong> It is against the law
-            for your employer to fire you, demote you, or treat you differently because you took
-            this leave.
+            {L(<><strong>You cannot be punished for taking this time.</strong> It is against the law for your employer to fire you, demote you, or treat you differently because you took this leave.</>,
+               <><strong>No pueden castigarlo(a) por tomar este tiempo.</strong> Es ilegal que su empleador lo(la) despida, lo(la) baje de puesto o lo(la) trate de manera diferente por haber tomado esta licencia.</>)}
           </p>
           <p style={{ ...body, margin: "0 0 10px" }}>
-            <strong>This leave cannot count against you.</strong> Any days covered by this letter
-            cannot be used against you in any attendance policy or disciplinary process.
+            {L(<><strong>This leave cannot count against you.</strong> Any days covered by this letter cannot be used against you in any attendance policy or disciplinary process.</>,
+               <><strong>Esta licencia no puede usarse en su contra.</strong> Los días cubiertos por esta carta no pueden usarse en su contra en ninguna política de asistencia ni proceso disciplinario.</>)}
           </p>
         </div>
 
-        {/* ── STATE OVERLAYS ── */}
+        {/* ── STATE NOTES ── */}
         {stateCode === "TN" && isBond && (
           <p style={body}>
-            <strong>Tennessee note:</strong> If your company has 100 or more full-time employees
-            at your location, you may have up to 4 months of protected leave for the birth,
-            adoption, or nursing of your child. This time runs alongside — not on top of — your
-            federal leave. Tennessee also requires 3 months' advance notice for planned leaves like
-            this, except when there is a medical emergency.
+            {L(<><strong>Tennessee note:</strong> If your company has 100 or more full-time employees at your location, you may have up to 4 months of protected leave for the birth, adoption, or nursing of your child. This time runs alongside — not on top of — your federal leave. Tennessee also requires 3 months' advance notice for planned leaves like this, except when there is a medical emergency.</>,
+               <><strong>Nota sobre Tennessee:</strong> Si su empresa tiene 100 o más empleados de tiempo completo en su lugar de trabajo, es posible que tenga hasta 4 meses de licencia protegida por el nacimiento, la adopción o la lactancia de su hijo(a). Este tiempo corre junto con — no además de — su licencia federal. Tennessee también exige un aviso con 3 meses de anticipación para licencias planificadas como esta, excepto en caso de emergencia médica.</>)}
           </p>
         )}
         {stateCode === "ME" && (
           <p style={body}>
-            <strong>Maine note:</strong> Your leave is covered under both federal law and Maine
-            state law at the same time. Maine's law covers a broader range of family situations,
-            including siblings who live with you and domestic partners. Please give us at least
-            30 days' notice when you know in advance that you will need time off.
+            {L(<><strong>Maine note:</strong> Your leave is covered under both federal law and Maine state law at the same time. Maine's law covers a broader range of family situations, including siblings who live with you and domestic partners. Please give us at least 30 days' notice when you know in advance that you will need time off.</>,
+               <><strong>Nota sobre Maine:</strong> Su licencia está cubierta por la ley federal y por la ley estatal de Maine al mismo tiempo. La ley de Maine cubre una gama más amplia de situaciones familiares, incluidos hermanos que viven con usted y parejas de hecho. Por favor avísenos con al menos 30 días de anticipación cuando sepa de antemano que necesitará tiempo libre.</>)}
           </p>
         )}
 
         {/* ── YOUR RESPONSIBILITIES ── */}
         <hr style={rule} />
-        <p style={{ ...lbl, marginBottom: 8 }}>What we need from you</p>
+        <p style={{ ...lbl, marginBottom: 8 }}>{L("What we need from you", "Lo que necesitamos de usted")}</p>
         <div style={indent}>
-          <p style={{ ...body, margin: "0 0 8px" }}>Let us know right away if your return date changes or if you need more or less time.</p>
-          <p style={{ ...body, margin: "0 0 8px" }}>Follow your normal process for letting your team know you will not be in that day.</p>
+          <p style={{ ...body, margin: "0 0 8px" }}>{L("Let us know right away if your return date changes or if you need more or less time.", "Avísenos de inmediato si cambia su fecha de regreso o si necesita más o menos tiempo.")}</p>
+          <p style={{ ...body, margin: "0 0 8px" }}>{L("Follow your normal process for letting your team know you will not be in that day.", "Siga su proceso habitual para avisar a su equipo que no se presentará ese día.")}</p>
           {f.paidLeaveConcurrent === "yes" && !isSTD && (
-            <p style={{ ...body, margin: "0 0 8px" }}>Use your saved-up {f.paidLeaveTypes || "sick and vacation time"} while you are away.</p>
+            <p style={{ ...body, margin: "0 0 8px" }}>{L(`Use your saved-up ${paidTypes} while you are away.`, `Use sus ${paidTypes} acumulados mientras está ausente.`)}</p>
           )}
           {f.employeePremiumShare && (
-            <p style={{ ...body, margin: "0 0 8px" }}>Keep up with your health insurance payments (${f.employeePremiumShare}).</p>
+            <p style={{ ...body, margin: "0 0 8px" }}>{L(`Keep up with your health insurance payments ($${f.employeePremiumShare}).`, `Mantenga al día los pagos de su seguro médico ($${f.employeePremiumShare}).`)}</p>
           )}
           <p style={{ ...body, margin: "0 0 8px" }}>
-            Give us{f.contactDaysBeforeReturn ? ` at least ${f.contactDaysBeforeReturn} working day${parseInt(f.contactDaysBeforeReturn)!==1?"s":""}'s` : " some"} notice before you plan to come back.
+            {days
+              ? L(`Give us at least ${days} ${wd(days)}' notice before you plan to come back.`, `Avísenos con al menos ${days} ${wd(days)} de anticipación antes de regresar.`)
+              : L("Give us some notice before you plan to come back.", "Avísenos con anticipación antes de regresar.")}
           </p>
         </div>
       </>}
 
-      {/* ── CUSTOM CLOSING ── */}
+      {/* ── CUSTOM CLOSING (Zone 3) ── */}
       {f.customClosing && <><hr style={rule} /><p style={{ ...body, fontStyle: "italic" }}>{f.customClosing}</p></>}
 
       {/* ── ENCLOSED DOCUMENTS ── */}
       {(() => {
-        const isFamCare = (f.qualifyingReason||"").includes("family member");
-        const isMilExig = (f.qualifyingReason||"").includes("exigency");
-        const isMilCare = (f.qualifyingReason||"").includes("caregiver");
+        const isFamCare = kind === "family";
         const needCert  = f.medCertRequired === "yes" && f.medCertStatus === "Pending";
         const needFFD   = f.fitForDutyRequired === "yes";
+        const EN_ONLY   = es ? " — en inglés" : "";
         const docs = [];
-        if (needCert && !isFamCare && !isMilExig && !isMilCare) docs.push({ label: "Doctor's paperwork form (WH-380-E)", note: "Please have your doctor complete and return this by " + (f.medCertDueDate || "the deadline above"), url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-380-E.pdf" });
-        if (needCert && isFamCare) docs.push({ label: "Doctor's paperwork form for family care (WH-380-F)", note: "Please have your family member's doctor complete and return this", url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-380-F.pdf" });
-        if (needFFD) docs.push({ label: "Return-to-work form", note: "Bring this to your doctor before you come back so they can fill it out", url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-380-E.pdf" });
-        if (stateCode === "ME") docs.push({ label: "Maine leave rights summary", url: "https://www.maine.gov/labor/docs/2020/posters/fmla.pdf" });
-        if (isPFML && stateCode === "ME" && f.pfmlClaimFiled !== "yes") docs.push({ label: "Maine paid leave — how to apply", note: "You still need to apply for your paid benefit", url: "https://www.maine.gov/pfml" });
-        docs.push({ label: "Your rights at a glance (plain English summary)", url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/whdfs28.pdf" });
-        if (!docs.length) return null;
+        if (needCert && kind !== "family" && kind !== "exigency" && kind !== "caregiver")
+          docs.push({ label: L("Doctor's paperwork form (WH-380-E)", "Formulario para su médico (WH-380-E)") + EN_ONLY, note: L("Please have your doctor complete and return this by " + (f.medCertDueDate || "the deadline above"), "Por favor pida a su médico que lo complete y lo devuelva a más tardar el " + (D(f.medCertDueDate) || "la fecha límite indicada arriba")), url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-380-E.pdf" });
+        if (needCert && isFamCare)
+          docs.push({ label: L("Doctor's paperwork form for family care (WH-380-F)", "Formulario para el médico de su familiar (WH-380-F)") + EN_ONLY, note: L("Please have your family member's doctor complete and return this", "Por favor pida al médico de su familiar que lo complete y lo devuelva"), url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-380-F.pdf" });
+        if (needFFD)
+          docs.push({ label: L("Return-to-work form", "Formulario de regreso al trabajo") + EN_ONLY, note: L("Bring this to your doctor before you come back so they can fill it out", "Llévelo a su médico antes de regresar para que lo llene"), url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/WH-380-E.pdf" });
+        if (stateCode === "ME")
+          docs.push({ label: L("Maine leave rights summary", "Resumen de sus derechos de licencia en Maine") + EN_ONLY, url: "https://www.maine.gov/labor/docs/2020/posters/fmla.pdf" });
+        if (isPFML && stateCode === "ME" && f.pfmlClaimFiled !== "yes")
+          docs.push({ label: L("Maine paid leave — how to apply", "Licencia pagada de Maine — cómo solicitarla"), note: L("You still need to apply for your paid benefit", "Todavía debe solicitar su beneficio pagado"), url: "https://www.maine.gov/pfml" });
+        docs.push({ label: L("Your rights at a glance (plain English summary)", "Sus derechos de un vistazo (resumen)") + EN_ONLY, url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/whdfs28.pdf" });
         return (<>
           <hr style={rule} />
-          <p style={{ ...lbl, marginBottom: 10 }}>What is enclosed with this letter</p>
+          <p style={{ ...lbl, marginBottom: 10 }}>{L("What is enclosed with this letter", "Lo que se incluye con esta carta")}</p>
           <div style={indent}>
             {docs.map((d, i) => (
               <div key={i} style={{ marginBottom: 10 }}>
-                <a href={d.url} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 13.5, color: "#1a1a1a", fontFamily: "Georgia, serif", fontWeight: 600 }}>
-                  → {d.label}
-                </a>
+                <a href={d.url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13.5, color: "#1a1a1a", fontFamily: "Georgia, serif", fontWeight: 600 }}>→ {d.label}</a>
                 {d.note && <p style={{ fontSize: 12, color: "#666", margin: "2px 0 0", fontFamily: ff }}>{d.note}</p>}
               </div>
             ))}
           </div>
+          {es && (
+            <p style={small}>Algunos documentos oficiales están disponibles solo en inglés. Si necesita ayuda para entenderlos, llámenos y con gusto le ayudaremos.</p>
+          )}
         </>);
       })()}
 
       {/* ── CLOSING ── */}
       <hr style={rule} />
       <p style={body}>
-        If you have any questions at all — about anything in this letter, about your pay, about
-        coming back, or about anything else — please call us. We are here to help.
+        {L("If you have any questions at all — about anything in this letter, about your pay, about coming back, or about anything else — please call us. We are here to help.",
+           "Si tiene alguna pregunta — sobre esta carta, sobre su pago, sobre su regreso o sobre cualquier otra cosa — por favor llámenos. Estamos aquí para ayudarle.")}
       </p>
       <p style={{ ...body, marginBottom: 24 }}>
-        You can reach us at <strong>{f.adminPhone || f.hrPhone || "the number above"}</strong>
-        {(f.adminEmail || f.hrEmail) ? ` or by email at ${f.adminEmail || f.hrEmail}` : ""}.
-        Please have your reference number ready: <strong>{f.claimNumber}</strong>.
+        {L(<>You can reach us at <strong>{phone}</strong>{(f.adminEmail || f.hrEmail) ? ` or by email at ${f.adminEmail || f.hrEmail}` : ""}. Please have your reference number ready: <strong>{f.claimNumber}</strong>.</>,
+           <>Puede comunicarse con nosotros al <strong>{phone}</strong>{(f.adminEmail || f.hrEmail) ? ` o por correo electrónico a ${f.adminEmail || f.hrEmail}` : ""}. Por favor tenga a mano su número de referencia: <strong>{f.claimNumber}</strong>.</>)}
       </p>
-      <p style={body}>Sincerely,</p>
+      <p style={body}>{L("Sincerely,", "Atentamente,")}</p>
       <div style={{ borderBottom: "1px solid #1a1a1a", width: 200, height: 36, marginBottom: 6 }} />
-      <p style={{ fontSize: 13, color: "#333", fontFamily: ff, margin: 0 }}>{f.adminName || f.hrContactName || "Leave Administrator"}</p>
+      <p style={{ fontSize: 13, color: "#333", fontFamily: ff, margin: 0 }}>{f.adminName || f.hrContactName || L("Leave Administrator", "Administrador de licencias")}</p>
       {f.hrTitle && <p style={{ fontSize: 12, color: "#666", fontFamily: ff, margin: "2px 0 0" }}>{f.hrTitle}</p>}
-      <p style={{ fontSize: 12, color: "#666", fontFamily: ff, margin: "2px 0 0" }}>On behalf of {f.employerName || "your employer"}</p>
+      <p style={{ fontSize: 12, color: "#666", fontFamily: ff, margin: "2px 0 0" }}>{L("On behalf of", "En nombre de")} {f.employerName || L("your employer", "su empleador")}</p>
 
-      {/* ── LEGAL FOOTER — tiny, for records ── */}
+      {/* ── LEGAL FOOTER — small print for records ── */}
       <div style={{ marginTop: 32, borderTop: "1px solid #eee", paddingTop: 10 }}>
         <p style={{ fontSize: 10, color: "#bbb", fontFamily: ff, margin: 0, lineHeight: 1.6 }}>
-          This letter is required under the Family and Medical Leave Act of 1993 (29 U.S.C. §§ 2601–2654) and 29 CFR Part 825.
-          {stateCode === "ME" ? " Maine Family Medical Leave Requirements, 26 M.R.S. §§ 843–850-R." : ""}
-          {stateCode === "TN" ? " Tennessee Parental Leave Act, T.C.A. § 4-21-408." : ""}
-          {" "}Template {f.templateVersion} · Letter {f.letterId} · {f.deliveryMethod}.
-          If you believe your rights have been violated, contact the U.S. Department of Labor at 1-866-487-9243.
+          {L("This letter is required under the Family and Medical Leave Act of 1993 (29 U.S.C. §§ 2601–2654) and 29 CFR Part 825.",
+             "Esta carta es requerida por la Ley de Licencia Familiar y Médica de 1993 (29 U.S.C. §§ 2601–2654) y 29 CFR Parte 825.")}
+          {stateCode === "ME" ? L(" Maine Family Medical Leave Requirements, 26 M.R.S. §§ 843–850-R.", " Requisitos de licencia familiar y médica de Maine, 26 M.R.S. §§ 843–850-R.") : ""}
+          {stateCode === "TN" ? L(" Tennessee Parental Leave Act, T.C.A. § 4-21-408.", " Ley de Licencia Parental de Tennessee, T.C.A. § 4-21-408.") : ""}
+          {" "}{L("Template", "Plantilla")} {f.templateVersion} · {L("Letter", "Carta")} {f.letterId} · {L(f.deliveryMethod, DELIVERY_ES[f.deliveryMethod] || f.deliveryMethod)}.
+          {" "}{L("If you believe your rights have been violated, contact the U.S. Department of Labor at 1-866-487-9243.",
+                  "Si cree que se han violado sus derechos, comuníquese con el Departamento de Trabajo de EE. UU. al 1-866-487-9243.")}
         </p>
       </div>
     </div>
@@ -2238,12 +2291,12 @@ function csvToForm(claim, agentFields = {}) {
 
 // ─── SAMPLE CSV ───────────────────────────────────────────────────────────────
 const SAMPLE_CSV = `claim_number,employee_name,employee_id,position,department,employer_name,hr_contact,hr_phone,hr_email,hire_date,hours_last_12mo,months_employed,worksite_headcount,state_of_employment,leave_start,leave_end,leave_type,qualifying_reason,notice_received,std_claim_number,std_weekly_benefit,std_elimination_days,pfml_claim_number,pfml_program,pfml_weekly_benefit,admin_name,admin_phone,admin_email
-CLM-2026-001,Sarah Thompson,EMP-001,Operations Analyst,Supply Chain,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2019-03-14,1820,87,250,Maine (ME),2026-06-30,2026-08-11,Continuous,Employee's own serious health condition,2026-06-19,STD-2026-001,1340,7,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
-CLM-2026-002,Marcus Johnson,EMP-002,Sales Manager,Commercial,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2022-08-01,1100,46,250,Tennessee (TN),2026-07-15,2026-11-15,Continuous,Birth and bonding with newborn (within 1 year),2026-07-01,,,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
-CLM-2026-003,Priya Patel,EMP-003,Software Engineer,IT,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2018-01-15,1680,101,250,Federal Only (No State Overlay),2026-07-01,2026-07-14,Intermittent,Care for spouse/family member with serious health condition,2026-06-28,,,ME-PFML-2026-003,Maine Paid Family & Medical Leave,680,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
-CLM-2026-004,David Chen,EMP-004,Accountant,Finance,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2025-03-01,420,15,250,Maine (ME),2026-07-10,2026-07-24,Continuous,Employee's own serious health condition,2026-07-05,,,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
-CLM-2026-005,Rachel Kim,EMP-005,Senior HR Analyst,Human Resources,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2017-06-12,1950,96,250,Federal Only (No State Overlay),2026-07-14,2026-07-28,Continuous,Employee's own serious health condition,2026-07-07,,,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
-CLM-2026-006,James Rivera,EMP-006,Senior Systems Architect,Technology,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2015-09-08,1760,129,250,Federal Only (No State Overlay),2026-07-07,2026-12-31,Intermittent,Employee's own serious health condition,2026-07-01,STD-2026-006,2100,14,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com`;
+CLM-2026-001,Sarah Thompson,EMP-001,Operations Analyst,Supply Chain,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2019-03-14,1820,87,250,Maine (ME),2026-06-30,2026-08-11,Continuous,Employee's own serious health condition,2026-06-19,STD-2026-001,1340,7,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
+CLM-2026-002,Marcus Johnson,EMP-002,Sales Manager,Commercial,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2022-08-01,1100,46,250,Tennessee (TN),2026-07-15,2026-11-15,Continuous,Birth and bonding with newborn (within 1 year),2026-07-01,,,,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
+CLM-2026-003,Priya Patel,EMP-003,Software Engineer,IT,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2018-01-15,1680,101,250,Federal Only (No State Overlay),2026-07-01,2026-07-14,Intermittent,Care for spouse/family member with serious health condition,2026-06-28,,,,ME-PFML-2026-003,Maine Paid Family & Medical Leave,680,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
+CLM-2026-004,David Chen,EMP-004,Accountant,Finance,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2025-03-01,420,15,250,Maine (ME),2026-07-10,2026-07-24,Continuous,Employee's own serious health condition,2026-07-05,,,,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
+CLM-2026-005,Rachel Kim,EMP-005,Senior HR Analyst,Human Resources,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2017-06-12,1950,96,250,Federal Only (No State Overlay),2026-07-14,2026-07-28,Continuous,Employee's own serious health condition,2026-07-07,,,,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com
+CLM-2026-006,James Rivera,EMP-006,Senior Systems Architect,Technology,Acme Manufacturing Co.,Jennifer Walsh,(215) 555-0100,jwalsh@acmemfg.com,2015-09-08,1760,129,250,Federal Only (No State Overlay),2026-07-07,2026-12-31,Intermittent,Employee's own serious health condition,2026-07-01,STD-2026-006,2100,14,,,,Meridian Absence Solutions,1-800-555-0199,fmla@meridian.com`;
 
 function parseCSV(text) {
   const lines = text.trim().split("\n");
@@ -2778,8 +2831,7 @@ export default function App() {
   }
 
   function handleAgentComplete(agentFields) {
-    const merged = csvToForm(activeClaim, agentFields);
-    setForm(merged);
+    setForm(prev => ({ ...csvToForm(activeClaim, agentFields), letterLanguage: prev.letterLanguage }));
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -2866,13 +2918,24 @@ export default function App() {
               <div style={{ display: "flex", gap: 6 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: scopeBgColor[form.noticeScope] || NAV, color: "white" }}>{scopeLabel[form.noticeScope]}</span>
                 <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 99, background: ltypeBgColor[form.letterType] || NAV, color: "white" }}>{ltypeLabel[form.letterType]}</span>
+                <span style={{ display: "inline-flex", marginLeft: 8, border: "1px solid #D1D5DB", borderRadius: 99, overflow: "hidden", background: "white" }}>
+                  {[["en", "English"], ["es", "Español"]].map(([id, lbl]) => {
+                    const on = (form.letterLanguage || "en") === id;
+                    return (
+                      <button key={id} onClick={() => setForm(p => ({ ...p, letterLanguage: id }))}
+                        style={{ padding: "3px 12px", fontSize: 11, fontWeight: 700, fontFamily: ff, border: "none", cursor: "pointer", background: on ? NAV : "white", color: on ? "white" : G600 }}>
+                        {lbl}
+                      </button>
+                    );
+                  })}
+                </span>
               </div>
               <button
                 onClick={() => {
                   const content = document.getElementById("letter-print-area")?.innerHTML;
                   if (!content) return;
                   const win = window.open("", "_blank");
-                  win.document.write(`<!DOCTYPE html><html><head><title>FMLA Letter - ${form.claimNumber}</title><style>
+                  win.document.write(`<!DOCTYPE html><html lang="${form.letterLanguage === "es" ? "es" : "en"}"><head><title>FMLA Letter - ${form.claimNumber}</title><style>
                     *{box-sizing:border-box;margin:0;padding:0}
                     body{font-family:Georgia,serif;font-size:13.5px;color:#1a1a1a;line-height:1.8;padding:48px;max-width:720px;margin:0 auto}
                     h1,h2,h3{font-weight:700}
