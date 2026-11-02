@@ -3268,7 +3268,7 @@ export default function App() {
   const [activeClaim, setActiveClaim] = useState(null);
   const [form, setForm]       = useState(defaultForm);
   const [view, setView]       = useState("form");         // form | letter (within form/letter mode)
-  const [explain, setExplain] = useState(true);   // specialist "explain this letter" mode
+  const [explain, setExplain] = useState(false);   // specialist "explain this letter" mode
 
   const scopeBgColor = { en: "#0D6B3B", dn: "#7C2D12", combined: NAV };
   const scopeLabel   = { en: "EN Only",  dn: "DN Only",  combined: "EN + DN" };
