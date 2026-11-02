@@ -295,7 +295,9 @@ const REASON_TEXT = {
   other:     { plainEn: "your leave",                                 plainEs: "su licencia",                                               fullEs: null },
 };
 
-function GeneratedLetter({ f }) {
+function GeneratedLetter({ f, annotate = false, openAll = false }) {
+  const [hoverId, setHoverId] = useState(null);
+  const [pinnedId, setPinnedId] = useState(null);
   const es = (f.letterLanguage || "en") === "es";
   const L  = (en, sp) => (es ? sp : en);
 
@@ -384,10 +386,17 @@ function GeneratedLetter({ f }) {
     : approved ? L("Your Time Away from Work — Approved", "Su licencia — Aprobada")
     : L("Your Time Away from Work — Our Decision", "Su licencia — Nuestra decisión");
 
+  // Specialist explain mode: wraps a section with a hover/click bubble. When off, renders the children untouched.
+  const ANN = annotate ? buildAnnotations(f, { scope, showEN, showDN, stateCode, qualifies, approved, entWks, usedWks, weeksLeft, meEnt, meUsed, maineLeft, isSTD, isPFML, isBond, days, returnDate, stdStart, phone, title, es }) : {};
+  const A = (id, children) => (annotate && ANN[id]) ? (
+    <AnnotBox key={id} id={id} info={ANN[id]} open={openAll || hoverId === id || pinnedId === id} pinned={pinnedId === id} onHover={setHoverId} onPin={setPinnedId}>{children}</AnnotBox>
+  ) : <>{children}</>;
+
   return (
     <div style={{ fontFamily: "Georgia, serif", maxWidth: 680, margin: "0 auto", color: "#1a1a1a" }}>
 
       {/* ── LETTERHEAD ── */}
+      {A("header", <>
       <div style={{ borderBottom: "2px solid #1a1a1a", paddingBottom: 16, marginBottom: 22 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 10 }}>
           <div>
@@ -403,7 +412,10 @@ function GeneratedLetter({ f }) {
         </div>
       </div>
 
+      </>)}
+
       {/* ── FROM / TO ── */}
+      {A("parties", <>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 22 }}>
         <div>
           <span style={lbl}>{L("From", "De")}</span>
@@ -423,6 +435,8 @@ function GeneratedLetter({ f }) {
         </div>
       </div>
 
+      </>)}
+
       <hr style={rule} />
 
       {/* ── SALUTATION ── */}
@@ -431,10 +445,11 @@ function GeneratedLetter({ f }) {
       </p>
 
       {/* ── CUSTOM OPENING (Zone 1) ── */}
-      {f.customOpening && <p style={{ ...body, fontStyle: "italic" }}>{f.customOpening}</p>}
+      {f.customOpening && A("opening", <p style={{ ...body, fontStyle: "italic" }}>{f.customOpening}</p>)}
 
       {/* ══════════ SECTION 1 — DO YOU QUALIFY? (EN scope) ══════════ */}
       {showEN && <>
+      {A("qualify", <>
         <p style={body}>
           {L(<>We received your request on <strong>{D(f.noticeReceived)}</strong> for time away from work because of <strong>{reasonPlain}</strong>. We have reviewed your request and want to let you know where things stand.</>,
              <>Recibimos su solicitud el <strong>{D(f.noticeReceived)}</strong> para ausentarse del trabajo debido a <strong>{reasonPlain}</strong>. La hemos revisado y queremos informarle cómo va su caso.</>)}
@@ -475,12 +490,14 @@ function GeneratedLetter({ f }) {
                <>Esto no significa que deba presentarse a trabajar si no se siente bien — por favor hable con {hrName} al <strong>{hrPhone}</strong> sobre las opciones disponibles para usted.</>)}
           </p>
         </>)}
+      </>)}
       </>}
 
       {/* ══════════ SECTION 2 — IS YOUR LEAVE APPROVED? (DN scope) ══════════ */}
       {showDN && <>
         {showEN && <hr style={rule} />}
 
+        {A("approval", <>
         {scope === "dn" && (
           <p style={{ ...small, color: "#888" }}>
             {L(`We sent you a separate letter on ${f.noticeReceived} about whether you qualify for job-protected leave. This letter is to tell you what we have decided about your specific request.`,
@@ -510,12 +527,15 @@ function GeneratedLetter({ f }) {
           </p>
         </>)}
 
+        </>)}
+
         {/* ── CUSTOM MID-NOTE (Zone 2) ── */}
-        {f.customMidNote && <><hr style={rule} /><p style={{ ...body, fontStyle: "italic" }}>{f.customMidNote}</p></>}
+        {f.customMidNote && <><hr style={rule} />{A("midnote", <p style={{ ...body, fontStyle: "italic" }}>{f.customMidNote}</p>)}</>}
 
         {/* ── DOCTOR'S PAPERWORK ── */}
         {f.medCertRequired === "yes" && (<>
           <hr style={rule} />
+          {A("medcert", <>
           <p style={{ ...lbl, marginBottom: 8 }}>{L("Do we need paperwork from your doctor?", "¿Necesitamos documentos de su médico?")}</p>
           {f.medCertStatus === "Received — Sufficient" ? (
             <p style={body}>
@@ -549,9 +569,11 @@ function GeneratedLetter({ f }) {
             </p>
           )}
         </>)}
+        </>)}
 
         {/* ── PAID TIME OFF ── */}
         <hr style={rule} />
+        {A("paidtime", <>
         <p style={{ ...lbl, marginBottom: 8 }}>{L("What happens to your paid time off?", "¿Qué pasa con sus días pagados de vacaciones o enfermedad?")}</p>
         {f.paidLeaveConcurrent === "yes" && !isSTD ? (
           <p style={body}>
@@ -570,9 +592,12 @@ function GeneratedLetter({ f }) {
           </p>
         )}
 
+        </>)}
+
         {/* ── DISABILITY PAY (STD) ── */}
         {isSTD && (<>
           <hr style={rule} />
+          {A("std", <>
           <p style={{ ...lbl, marginBottom: 8 }}>{L("Your pay while you are away", "Su pago mientras está ausente")}</p>
           <p style={body}>
             {L("Good news — you have disability pay coverage that will replace part of your income while you recover. Here is what you can expect:",
@@ -606,10 +631,12 @@ function GeneratedLetter({ f }) {
                `La protección de su empleo bajo la ley federal dura hasta ${entWks} semanas. Su pago por incapacidad podría durar más que eso — si es así, hable con nosotros antes de esa fecha para que podamos analizar juntos sus opciones.`)}
           </p>
         </>)}
+        </>)}
 
         {/* ── PAID LEAVE BENEFIT (PFML) ── */}
         {isPFML && (<>
           <hr style={rule} />
+          {A("pfml", <>
           <p style={{ ...lbl, marginBottom: 8 }}>{L("Your paid leave benefit", "Su beneficio de licencia pagada")}</p>
           <p style={body}>
             {L(`Along with having your job protected, you also have a paid leave benefit available through ${f.pfmlProgram || "the state paid family leave program"}. This will replace part of your income while you are away. Your job protection and your paid benefit run at the same time — having the paid benefit does not give you extra time off beyond what is already approved.`,
@@ -638,9 +665,11 @@ function GeneratedLetter({ f }) {
             </p>
           )}
         </>)}
+        </>)}
 
         {/* ── COMING BACK TO WORK ── */}
         <hr style={rule} />
+        {A("return", <>
         <p style={{ ...lbl, marginBottom: 8 }}>{L("Coming back to work", "Su regreso al trabajo")}</p>
         <p style={body}>
           {L(<>We expect to see you back on or around <strong>{returnDate || "the end of your approved leave"}</strong>.{days ? ` Please give ${hrName} a call at least ${days} ${wd(days)} before you plan to come back so we can get everything ready.` : ""}</>,
@@ -653,8 +682,11 @@ function GeneratedLetter({ f }) {
           </p>
         )}
 
+        </>)}
+
         {/* ── HEALTH INSURANCE ── */}
         <hr style={rule} />
+        {A("health", <>
         <p style={{ ...lbl, marginBottom: 8 }}>{L("Your health insurance while you are away", "Su seguro médico mientras está ausente")}</p>
         <p style={body}>
           {L(<>Your health insurance <strong>stays active</strong> while you are on leave, exactly as it is now. Nothing changes about your coverage.</>,
@@ -667,8 +699,11 @@ function GeneratedLetter({ f }) {
           </p>
         )}
 
+        </>)}
+
         {/* ── YOUR RIGHTS ── */}
         <hr style={rule} />
+        {A("rights", <>
         <p style={{ ...lbl, marginBottom: 8 }}>{L("What are your rights?", "¿Cuáles son sus derechos?")}</p>
         <div style={indent}>
           <p style={{ ...body, margin: "0 0 10px" }}>
@@ -685,7 +720,10 @@ function GeneratedLetter({ f }) {
           </p>
         </div>
 
+        </>)}
+
         {/* ── STATE NOTES ── */}
+        {(stateCode === "ME" || (stateCode === "TN" && isBond)) && A("statenote", <>
         {stateCode === "TN" && isBond && (
           <p style={body}>
             {L(<><strong>Tennessee note:</strong> If your company has 100 or more full-time employees at your location, you may have up to 4 months of protected leave for the birth, adoption, or nursing of your child. This time runs alongside — not on top of — your federal leave. Tennessee also requires 3 months' advance notice for planned leaves like this, except when there is a medical emergency.</>,
@@ -699,8 +737,11 @@ function GeneratedLetter({ f }) {
           </p>
         )}
 
+        </>)}
+
         {/* ── YOUR RESPONSIBILITIES ── */}
         <hr style={rule} />
+        {A("responsibilities", <>
         <p style={{ ...lbl, marginBottom: 8 }}>{L("What we need from you", "Lo que necesitamos de usted")}</p>
         <div style={indent}>
           <p style={{ ...body, margin: "0 0 8px" }}>{L("Let us know right away if your return date changes or if you need more or less time.", "Avísenos de inmediato si cambia su fecha de regreso o si necesita más o menos tiempo.")}</p>
@@ -717,10 +758,11 @@ function GeneratedLetter({ f }) {
               : L("Give us some notice before you plan to come back.", "Avísenos con anticipación antes de regresar.")}
           </p>
         </div>
+        </>)}
       </>}
 
       {/* ── CUSTOM CLOSING (Zone 3) ── */}
-      {f.customClosing && <><hr style={rule} /><p style={{ ...body, fontStyle: "italic" }}>{f.customClosing}</p></>}
+      {f.customClosing && <><hr style={rule} />{A("closingnote", <p style={{ ...body, fontStyle: "italic" }}>{f.customClosing}</p>)}</>}
 
       {/* ── ENCLOSED DOCUMENTS ── */}
       {(() => {
@@ -742,6 +784,7 @@ function GeneratedLetter({ f }) {
         docs.push({ label: L("Your rights at a glance (plain English summary)", "Sus derechos de un vistazo (resumen)") + EN_ONLY, url: "https://www.dol.gov/sites/dolgov/files/WHD/legacy/files/whdfs28.pdf" });
         return (<>
           <hr style={rule} />
+          {A("enclosures", <>
           <p style={{ ...lbl, marginBottom: 10 }}>{L("What is enclosed with this letter", "Lo que se incluye con esta carta")}</p>
           <div style={indent}>
             {docs.map((d, i) => (
@@ -754,11 +797,13 @@ function GeneratedLetter({ f }) {
           {es && (
             <p style={small}>Algunos documentos oficiales están disponibles solo en inglés. Si necesita ayuda para entenderlos, llámenos y con gusto le ayudaremos.</p>
           )}
+          </>)}
         </>);
       })()}
 
       {/* ── CLOSING ── */}
       <hr style={rule} />
+      {A("closing", <>
       <p style={body}>
         {L("If you have any questions at all — about anything in this letter, about your pay, about coming back, or about anything else — please call us. We are here to help.",
            "Si tiene alguna pregunta — sobre esta carta, sobre su pago, sobre su regreso o sobre cualquier otra cosa — por favor llámenos. Estamos aquí para ayudarle.")}
@@ -773,8 +818,10 @@ function GeneratedLetter({ f }) {
       {f.hrTitle && <p style={{ fontSize: 12, color: "#666", fontFamily: ff, margin: "2px 0 0" }}>{f.hrTitle}</p>}
       <p style={{ fontSize: 12, color: "#666", fontFamily: ff, margin: "2px 0 0" }}>{L("On behalf of", "En nombre de")} {f.employerName || L("your employer", "su empleador")}</p>
 
+      </>)}
+
       {/* ── LEGAL FOOTER — small print for records ── */}
-      <div style={{ marginTop: 32, borderTop: "1px solid #eee", paddingTop: 10 }}>
+      {A("footer", <div style={{ marginTop: 32, borderTop: "1px solid #eee", paddingTop: 10 }}>
         <p style={{ fontSize: 10, color: "#bbb", fontFamily: ff, margin: 0, lineHeight: 1.6 }}>
           {L("This letter is required under the Family and Medical Leave Act of 1993 (29 U.S.C. §§ 2601–2654) and 29 CFR Part 825.",
              "Esta carta es requerida por la Ley de Licencia Familiar y Médica de 1993 (29 U.S.C. §§ 2601–2654) y 29 CFR Parte 825.")}
@@ -784,7 +831,422 @@ function GeneratedLetter({ f }) {
           {" "}{L("If you believe your rights have been violated, contact the U.S. Department of Labor at 1-866-487-9243.",
                   "Si cree que se han violado sus derechos, comuníquese con el Departamento de Trabajo de EE. UU. al 1-866-487-9243.")}
         </p>
+      </div>)}
+    </div>
+  );
+}
+
+// ─── SPECIALIST "EXPLAIN THIS LETTER" MODE ───────────────────────────────────
+// Everything below is for the specialist only. It is never part of the letter
+// itself: the PDF is produced from a separate, annotation-free copy.
+
+function AnnotBox({ id, info, open, pinned, onHover, onPin, children }) {
+  const Block = ({ label, text }) => text ? (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#6B7280", marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 12.5, color: "#1F2937", lineHeight: 1.55 }}>{text}</div>
+    </div>
+  ) : null;
+  return (
+    <div
+      onMouseEnter={() => onHover(id)}
+      onMouseLeave={() => onHover(null)}
+      style={{ position: "relative", margin: "0 -10px", padding: "2px 10px", borderRadius: 6,
+        background: open ? "rgba(219,234,254,0.45)" : "transparent",
+        boxShadow: open ? "0 0 0 2px #93C5FD" : "none", transition: "background .12s, box-shadow .12s" }}
+    >
+      <button type="button" aria-label={`Explain: ${info.title}`} aria-expanded={open}
+        onClick={() => onPin(pinned ? null : id)}
+        style={{ position: "absolute", left: -30, top: 4, width: 20, height: 20, borderRadius: "50%", border: "none", cursor: "pointer",
+          background: open ? "#1D4ED8" : "#3B82F6", color: "white", fontSize: 12, fontWeight: 700, fontFamily: ff, lineHeight: "20px",
+          padding: 0, boxShadow: "0 1px 3px rgba(0,0,0,.25)" }}>i</button>
+      {children}
+      {open && (
+        <div role="dialog" aria-label={info.title}
+          style={{ position: "absolute", left: 14, top: 26, zIndex: 60, width: "min(390px, 92vw)", maxHeight: 460, overflowY: "auto",
+            background: "#fff", border: "1px solid #BFDBFE", borderRadius: 10, boxShadow: "0 10px 30px rgba(15,23,42,.22)",
+            padding: "12px 14px", fontFamily: ff, textAlign: "left", fontStyle: "normal", fontWeight: 400, letterSpacing: 0, textTransform: "none" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#1B3A6B", lineHeight: 1.3 }}>{info.title}</div>
+            {pinned && <button type="button" aria-label="Close" onClick={() => onPin(null)}
+              style={{ border: "none", background: "none", cursor: "pointer", fontSize: 16, lineHeight: 1, color: "#6B7280", padding: 0 }}>×</button>}
+          </div>
+          {info.flag && (
+            <div style={{ background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: 6, padding: "6px 9px", fontSize: 12, color: "#92400E", marginBottom: 10, lineHeight: 1.45 }}>
+              ⚠ {info.flag}
+            </div>
+          )}
+          <Block label="In plain terms" text={info.plain} />
+          <Block label="Why it is in the letter" text={info.why} />
+          <Block label="Where this came from" text={info.source} />
+          {info.swaps && info.swaps.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#6B7280", marginBottom: 3 }}>Words we simplified</div>
+              {info.swaps.map(([tech, plain], i) => (
+                <div key={i} style={{ fontSize: 12, color: "#1F2937", marginBottom: 2, lineHeight: 1.45 }}>
+                  <span style={{ color: "#9CA3AF", textDecoration: "line-through" }}>{tech}</span> → <strong>{plain}</strong>
+                </div>
+              ))}
+            </div>
+          )}
+          {info.faq && info.faq.length > 0 && (
+            <div style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 6, padding: "8px 10px" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#6B7280", marginBottom: 4 }}>If the claimant asks…</div>
+              {info.faq.map(([q, a], i) => (
+                <div key={i} style={{ marginBottom: i < info.faq.length - 1 ? 8 : 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>“{q}”</div>
+                  <div style={{ fontSize: 12, color: "#374151", lineHeight: 1.5 }}>{a}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ fontSize: 10, color: "#9CA3AF", marginTop: 8 }}>Specialist reference — not part of the letter or the PDF.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function buildAnnotations(f, c) {
+  const reasons = [f.ineligMonths && "under 12 months employed", f.ineligHours && "under 1,250 hours", f.ineligSize && "worksite under 50 employees"].filter(Boolean).join("; ");
+  const scopeName = c.scope === "en" ? "Eligibility Notice (EN)" : c.scope === "dn" ? "Designation Notice (DN)" : "combined Eligibility + Designation Notice (EN + DN)";
+  const paid = (!f.paidLeaveTypes || f.paidLeaveTypes === "Accrued sick leave and PTO") ? "sick days and vacation time" : f.paidLeaveTypes;
+  const dash = (x) => (x === undefined || x === null || x === "" ? "—" : x);
+  const notes = { Zone1: "after the greeting", Zone2: "after the approval decision", Zone3: "before the enclosed documents" };
+  const A = {};
+
+  A.header = {
+    title: "Letter title & reference number",
+    plain: "Tells the claimant, in everyday words, what this letter is about. The reference number lets them — and us — find the file quickly when they call.",
+    why: `Federal law requires written notice. An eligibility notice is due within 5 business days of the leave request (29 CFR 825.300(b)); a designation notice within 5 business days of having enough information to decide (825.300(d)). This letter is the ${scopeName}.`,
+    source: `Claim ${dash(f.claimNumber)} · dated ${dash(f.generatedDate)} · sent by ${f.adminName || "the leave administrator"} on behalf of ${f.employerName || "the employer"}.`,
+    swaps: [[c.scope === "en" ? "Notice of Eligibility" : c.scope === "dn" ? "Designation Notice" : "Notice of Eligibility and Designation", c.title]],
+    faq: [
+      ["Why did I get this letter?", "You asked for time away from work. The law requires us to tell you in writing whether it is job-protected and what happens next."],
+      ["What is the reference number for?", `Quote ${f.claimNumber || "your claim number"} when you call so we can open your file right away.`],
+    ],
+    flag: c.es ? "This letter is in Spanish; these explanations stay in English for the specialist." : null,
+  };
+
+  A.parties = {
+    title: "From / To",
+    plain: "Who sent the letter, who it is for, and who to call.",
+    why: "Gives the claimant a direct contact for questions and records who the notice was addressed to. FMLA notices and related records are kept for 3 years (29 CFR 825.500).",
+    source: `From: ${f.adminName || f.hrContactName || "—"}, ${dash(f.adminPhone)}, ${dash(f.adminEmail)}. To: ${dash(f.employeeName)}${f.position ? `, ${f.position}` : ""}${f.employeeAddress ? `, ${f.employeeAddress}` : ""}. Taken from the claim system and administrator fields.`,
+    faq: [["Who do I call with questions?", `Call ${f.adminName || "the leave administrator"} at ${c.phone}${f.adminEmail ? ` or email ${f.adminEmail}` : ""}.`]],
+  };
+
+  A.opening = {
+    title: "Opening note (added by the specialist)",
+    plain: "A personal sentence written or approved by the specialist. It appears in italics.",
+    why: "Not required by law and not standard wording. Italics make it easy to tell apart from the standard text during review.",
+    source: `Custom letter content → Zone 1 on the input form (${notes.Zone1}).`,
+  };
+
+  A.qualify = {
+    title: `Do you qualify for job-protected leave? — ${c.qualifies ? "Yes" : "Not at this time"}`,
+    plain: c.qualifies
+      ? `Tells the claimant their job is protected for up to ${c.entWks} weeks this year — ${c.usedWks} used, ${c.weeksLeft} left${c.stateCode === "ME" ? `; Maine adds a separate balance (${c.maineLeft} of ${c.meEnt} weeks left in its 2-year window)` : ""}.`
+      : `Tells the claimant, kindly, that they do not currently qualify, names the reason${reasons ? ` (${reasons})` : ""}, and points them to HR for other options.`,
+    why: `The eligibility notice must say whether the employee is eligible for FMLA and, if not, give at least one reason (29 CFR 825.300(b)). Federal tests: employed 12+ months, 1,250+ hours in the past 12 months, and a worksite with 50+ employees within 75 miles.${c.stateCode === "ME" ? " Maine's law has its own tests and a 10-week / 2-year balance, so both balances are shown and both run at the same time." : ""}`,
+    source: `Claim system: ${dash(f.monthsEmployed)} months employed, ${dash(f.hoursLast12Mo)} hours, ${dash(f.worksiteHeadcount)} employees at the worksite → ${c.qualifies ? "all three tests met" : `not met (${reasons || "no reason ticked"})`}. Specialist form: entitlement ${c.entWks} wks, used ${c.usedWks} wks.`,
+    swaps: [["FMLA eligibility determination", "Do you qualify for job-protected leave?"], ["FMLA entitlement", "time available / weeks remaining"], ["Reinstatement protection", "your job is protected"], ["Leave year", "this year"]],
+    faq: [
+      ["What does “job-protected” mean?", "Your employer must keep your job — or an equivalent one — open while you are away. It is about your job, not your pay."],
+      ["Why do you need my work hours?", "The law covers employees who worked 12+ months and at least 1,250 hours in the past year (about 24 hours a week). We pulled that from payroll records. If you think it is wrong, tell us and we will re-check."],
+    ],
+    flag: !c.qualifies && !reasons ? "Not eligible is selected but no reason is ticked, so the letter will not say why. Tick at least one reason on the form." : null,
+  };
+
+  A.approval = {
+    title: `Is your time off approved? — ${c.approved ? "Yes" : "No"}`,
+    plain: c.approved
+      ? `Confirms the leave dates (${dash(f.leaveStart)}${f.leaveEnd ? ` to ${f.leaveEnd}` : ""}) are approved and protected${f.weeksCountedFmla ? `, and that it counts as ${f.weeksCountedFmla} week(s) toward the yearly total` : ""}.`
+      : "Explains that we could not approve this request, gives the reason, and invites the claimant to call.",
+    why: "The designation notice must tell the employee whether the leave is counted as FMLA leave and, when known, how much leave is counted (29 CFR 825.300(d)). For intermittent leave the amount cannot be known up front; it is counted as it is used.",
+    source: `Specialist form: designation ${c.approved ? "yes" : `no — “${f.nonDesignationReason || "no reason entered"}”`}; weeks counted ${f.weeksCountedFmla || "not entered"}. Dates and leave type (${dash(f.leaveType)}) from the claim system.${c.scope === "dn" ? " DN-only letter: assumes an eligibility notice was already sent." : ""}`,
+    swaps: [["Leave designated as FMLA leave", "Your time off is approved"], ["Weeks counted against entitlement", "counts as N weeks toward your total"]],
+    faq: [
+      ["Does “approved” mean I get paid?", "No. Approved means your job protection applies. Pay comes from other sources — see the paid time off, disability pay or paid leave sections of the letter."],
+      ["What if my dates change?", "Tell us right away and we will update the approval and the weeks counted."],
+    ],
+    flag: !c.approved && !f.nonDesignationReason ? "Not designated is selected but no reason is entered, so the letter only says to call us. Add the reason on the form." : null,
+  };
+
+  A.midnote = {
+    title: "Mid-letter note (added by the specialist)",
+    plain: "A personal or case-specific note written or approved by the specialist. It appears in italics.",
+    why: "Not required by law and not standard wording. Italics make it easy to tell apart from the standard text during review.",
+    source: `Custom letter content → Zone 2 on the input form (${notes.Zone2}).`,
+  };
+
+  const st = f.medCertStatus;
+  A.medcert = {
+    title: "Paperwork from your doctor",
+    plain: st === "Pending" ? `Asks the claimant to have their doctor complete the enclosed form by ${f.medCertDueDate || "the due date"} and explains what happens if it is late.`
+      : st === "Received — Sufficient" ? "Confirms we have what we need — nothing more to send."
+      : st === "Received — Insufficient" ? "Says we need a little more information and that we will follow up."
+      : "Reminds the claimant of the paperwork status and gives the phone number to call.",
+    why: `When medical certification is requested, the employee must get at least 15 calendar days to return it and be told what happens if it is late or incomplete (29 CFR 825.305).${st === "Received — Insufficient" ? " If it is incomplete, the written request for the missing information must say what is missing and allow 7 calendar days to fix it — that request goes out separately from this letter." : ""}`,
+    source: `Specialist form: certification ${dash(st)}; due ${dash(f.medCertDueDate)}; provider ${f.providerName || "not entered"}${f.recertRequired === "yes" ? `; recertification around ${dash(f.recertDate)}` : ""}.`,
+    swaps: [["Medical certification", "paperwork from your doctor"], ["Insufficient / incomplete certification", "we need a little more information"], ["Recertification", "we may ask your doctor to update that paperwork"]],
+    faq: [
+      ["Why do you need a form from my doctor?", "So we can confirm the medical reason for your leave and the expected time away. Your doctor completes the form and sends it back."],
+      ["My doctor needs more time.", "Please call before the due date — the letter promises we will work something out."],
+    ],
+    flag: st === "Pending" && !f.medCertDueDate ? "No due date entered — the letter will show a blank deadline." : null,
+  };
+
+  A.paidtime = {
+    title: "What happens to your paid time off",
+    plain: c.isSTD ? "Says the claimant does not have to use vacation or sick days while receiving disability pay."
+      : f.paidLeaveConcurrent === "yes" ? `Says saved-up ${paid} are used at the same time as the protected leave — this makes part of the leave paid; it does not add time off.`
+      : "Says the claimant is not required to use vacation or sick days; the leave is unpaid unless they choose to use them.",
+    why: "The designation notice must say whether the employer requires paid leave to be used during FMLA leave (29 CFR 825.300(d); substitution of paid leave, 825.207). Where disability pay applies, this letter does not require it.",
+    source: `Specialist form: concurrent paid leave ${f.paidLeaveConcurrent === "yes" ? "required" : "not required"}${f.paidLeaveConcurrent === "yes" && !c.isSTD ? ` (${paid})` : ""}; letter type ${c.isSTD ? "FMLA + STD" : c.isPFML ? "FMLA + paid leave" : "standalone FMLA"}.`,
+    swaps: [["Substitution / concurrent use of accrued paid leave", "your saved-up sick days and vacation used at the same time"]],
+    faq: [
+      ["Do I have to use my vacation or sick days?", c.isSTD ? "Not while you are receiving disability pay." : f.paidLeaveConcurrent === "yes" ? `Yes — your saved-up ${paid} are used while you are away. That gives you some pay during the leave; it does not give you extra time off.` : "No. You can choose to use them, but you are not required to."],
+      ["Will I be paid?", "Job protection itself is unpaid. Any pay comes from saved-up days, disability pay or a state paid-leave benefit — whichever of those sections appear in your letter."],
+    ],
+    flag: c.isSTD && f.paidLeaveConcurrent === "yes" ? "The form says concurrent paid leave is required, but this is an STD letter, so the letter states it is NOT required (paid leave is not substituted while disability pay applies)." : null,
+  };
+
+  A.std = {
+    title: "Your pay while you are away (disability pay)",
+    plain: `Explains the disability pay: who provides it, the claim number, when payments start (after the ${dash(f.stdEliminationDays)}-day wait${c.stdStart ? `, around ${c.stdStart}` : ""}), the weekly amount and how long it lasts.`,
+    why: "Disability pay and FMLA often cover the same absence but are separate: FMLA protects the job (up to the weeks shown); the disability plan pays income under its own terms. The letter says so, so the claimant is not surprised if pay lasts longer than job protection (an ADA reasonable-accommodation review may be needed — see the compliance report). Benefit details come from the disability claim record.",
+    source: `STD claim ${dash(f.stdClaimNumber)} · ${f.stdCarrierName || "carrier not entered"} · $${dash(f.stdWeeklyBenefit)}/wk (${f.stdBenefitPct || 60}%) · ${dash(f.stdEliminationDays)}-day wait · max ${dash(f.stdMaxDurationWeeks)} wks · LTD bridge ${f.stdBridgeToLtd === "yes" ? "yes" : "no"}.`,
+    swaps: [["Elimination period", "waiting period before payments start"], ["Short-term disability benefit", "disability pay"], ["Benefit offset", "pay may be reduced by other income"], ["FMLA exhaustion", "job protection ends after the weeks shown"], ["LTD bridge", "longer-term coverage"]],
+    faq: [
+      ["When will I get my first payment?", `Payments begin after the ${dash(f.stdEliminationDays)}-day waiting period${c.stdStart ? ` — around ${c.stdStart}` : ""}. The disability plan sets the exact payment timing.`],
+      ["What if I am still unwell when my job protection ends?", "Your disability pay may continue under the plan, but the FMLA job guarantee ends after the weeks shown. Call us before then — other protections, such as reasonable accommodation under the ADA, may apply and we can talk through your options."],
+    ],
+    flag: (!f.stdCarrierName || !f.stdClaimNumber || !f.stdWeeklyBenefit) ? "Carrier, claim number or weekly benefit is missing — those rows are left out of the letter." : null,
+  };
+
+  A.pfml = {
+    title: "Your paid leave benefit",
+    plain: `Explains the state paid-leave benefit (${f.pfmlProgram || "program not entered"}) that replaces part of wages, that it runs at the same time as job protection, and ${f.pfmlClaimFiled === "yes" ? "that the claim is already filed" : "that the claimant must apply separately"}.`,
+    why: `State paid-leave programs are separate from FMLA and usually need their own application; saying so plainly helps avoid delayed benefits. The two run at the same time, so the paid benefit does not add time off.${c.stateCode === "ME" ? " Maine's program (26 M.R.S. §850-A et seq.) does not require using saved-up days first." : ""}`,
+    source: `Program ${dash(f.pfmlProgram)} · claim ${f.pfmlClaimNumber || "not yet filed"} · administered by ${dash(f.pfmlAdminContact)} · $${dash(f.pfmlWeeklyBenefit)}/wk (${f.pfmlBenefitPct || 60}%) · ${dash(f.pfmlWaitingDays)}-day wait · ${dash(f.pfmlWeeksAvailable)} weeks available.`,
+    swaps: [["Concurrent designation (FMLA + paid leave)", "protection and pay run at the same time"], ["Waiting / elimination period", "when it starts"]],
+    faq: [
+      ["Do I need to apply for the paid benefit myself?", f.pfmlClaimFiled === "yes" ? "A claim is already on file. Contact the program administrator for its status." : "Yes — it is applied for separately. Contact the program administrator as soon as possible; waiting does not extend your time."],
+      ["Does the paid benefit give me extra time off?", "No. Your job protection and the paid benefit run together."],
+    ],
+    flag: f.pfmlClaimFiled !== "yes" ? "Claim not filed — the letter tells the claimant to apply separately." : null,
+  };
+
+  A["return"] = {
+    title: "Coming back to work",
+    plain: `Gives the expected return date (${c.returnDate || "end of the approved leave"}), who to call${c.days ? ` ${c.days} working day(s)` : ""} before returning, and ${f.fitForDutyRequired === "yes" ? "that a doctor's note is needed first" : "that no doctor's note is required"}.`,
+    why: "The designation notice must say whether a fitness-for-duty certification is required to return and, if so, whether it must address the employee's ability to do the essential functions of the job (29 CFR 825.300(d); 825.312).",
+    source: `Specialist form: return ${c.returnDate || "not entered"}; call ${dash(c.days || "")} working days ahead; fitness-for-duty ${f.fitForDutyRequired === "yes" ? `required${f.fitForDutyEssentialFunctions === "yes" ? " (must address essential job functions)" : ""}` : "not required"}.`,
+    swaps: [["Fitness-for-duty certification", "a note from your doctor saying you are ready to return"], ["Essential functions", "the main parts of your job"]],
+    faq: [
+      ["Do I need a note to come back?", f.fitForDutyRequired === "yes" ? "Yes. Have your doctor write a note saying you are ready to return, and bring it or send it to HR before your first day back." : "No note is required for this leave."],
+      ["My return date is changing.", "Tell us right away. We will update the dates — extending a leave may need updated paperwork from your doctor, and we will tell you."],
+    ],
+    flag: !c.returnDate ? "No return date entered — the letter says “the end of your approved leave”." : null,
+  };
+
+  A.health = {
+    title: "Your health insurance while you are away",
+    plain: `Confirms health insurance stays active${f.employeePremiumShare ? ` and that the claimant keeps paying their share ($${f.employeePremiumShare})` : ""}.`,
+    why: "The employer must keep group health coverage going during FMLA leave on the same terms, and the employee must be told they still pay their share and how (29 CFR 825.209–825.210; 825.300(c)). Missed payments can end coverage only after notice.",
+    source: `Specialist form: premium share ${f.employeePremiumShare ? `$${f.employeePremiumShare}` : "not entered"}; method ${dash(f.premiumPaymentMethod)}.`,
+    swaps: [["Continuation of group health plan coverage", "your health insurance stays active"], ["Employee premium share", "your share of the health insurance cost"]],
+    faq: [
+      ["Will I lose my health insurance?", "No, as long as your share is paid. If a payment is missed you get notice before coverage can pause — call us early if you think you will have trouble."],
+      ["How do I pay my share?", f.premiumPaymentMethod ? `${f.premiumPaymentMethod}.` : "HR will confirm how."],
+    ],
+    flag: !f.employeePremiumShare ? "No premium amount entered — the letter says insurance continues but shows no dollar amount. See the Send Readiness checklist." : null,
+  };
+
+  A.rights = {
+    title: "What are your rights?",
+    plain: "Three reassurances: the job is safe, the claimant cannot be punished for taking the leave, and the leave cannot count against attendance.",
+    why: "FMLA lets an employee return to the same or an equivalent job (29 CFR 825.214) and bars interference or retaliation (825.220). Stating this plainly is part of the rights-and-responsibilities notice (825.300(c)).",
+    source: "Standard wording — the same for every claimant. Not taken from claim data.",
+    swaps: [["Reinstatement to same or equivalent position", "you can return to the same job or an equivalent one"], ["Interference / retaliation", "cannot be punished or treated differently"], ["No-fault attendance policy", "cannot count against you"]],
+    faq: [["Can they replace me while I am out?", "Your employer must restore you to the same or an equivalent job — same pay, benefits and conditions. If you believe that is not happening, call us or contact the U.S. Department of Labor at the number in the letter's footer."]],
+  };
+
+  const hc = parseInt(f.worksiteHeadcount || 0);
+  A.statenote = c.stateCode === "ME" ? {
+    title: "Maine note",
+    plain: "Explains that Maine's own leave law runs alongside federal FMLA, covers more family situations, and asks for 30 days' notice when the leave is planned.",
+    why: "Where state and federal leave laws differ, the employee gets the more generous protection (29 CFR 825.701). Maine's law (26 M.R.S. §843 et seq.) has its own thresholds, a 10-week / 2-year balance and broader family definitions, such as siblings who live with the employee and domestic partners.",
+    source: `State of employment: Maine · Maine balance ${c.meUsed} of ${c.meEnt} weeks used (specialist form).`,
+    faq: [["Why does the letter mention Maine law?", "Because you work in Maine, state leave protections apply along with federal FMLA. You get whichever is more generous, and they run at the same time."]],
+  } : {
+    title: "Tennessee note",
+    plain: "Explains that Tennessee's parental leave law may give up to 4 months for birth, adoption or nursing, overlaps with federal leave (not added on top), and needs 3 months' notice when planned.",
+    why: "Tennessee's law (T.C.A. §4-21-408) applies only to birth, adoption and nursing leave at employers with 100+ full-time employees at the location, and runs at the same time as federal FMLA.",
+    source: `State: Tennessee · reason: ${dash(f.qualifyingReason)} · worksite headcount ${f.worksiteHeadcount || "not entered"}.`,
+    faq: [["Do I get 4 months plus the 12 weeks?", "No — they overlap rather than add together."]],
+    flag: !f.worksiteHeadcount ? "Headcount not entered — the 100-employee threshold cannot be confirmed." : hc < 100 ? `Worksite headcount is ${hc}, under 100 — the Tennessee law may not apply, but this note still prints for birth/adoption leave. Confirm with compliance.` : null,
+  };
+
+  A.responsibilities = {
+    title: "What we need from you",
+    plain: "A short checklist of what the claimant must do while away: report changes, follow call-in rules, keep paying the insurance share, and give notice before returning.",
+    why: "The rights-and-responsibilities notice must tell the employee what they have to do to keep their protections, such as reporting changes, providing requested certification and paying their share of premiums (29 CFR 825.300(c)).",
+    source: `Standard items plus form answers: paid leave ${f.paidLeaveConcurrent === "yes" && !c.isSTD ? "used at the same time" : "not required"}, premium ${f.employeePremiumShare ? `$${f.employeePremiumShare}` : "not entered"}, return notice ${c.days ? `${c.days} working days` : "not set"}.`,
+    swaps: [["Employee obligations", "What we need from you"]],
+    faq: [["What if I forget to call in one day?", "Follow your normal call-in process each day. If you could not, contact us as soon as you can and explain — we will help sort it out."]],
+  };
+
+  A.closingnote = {
+    title: "Closing note (added by the specialist)",
+    plain: "A personal note written or approved by the specialist. It appears in italics.",
+    why: "Not required by law and not standard wording. Italics make it easy to tell apart from the standard text during review.",
+    source: `Custom letter content → Zone 3 on the input form (${notes.Zone3}).`,
+  };
+
+  A.enclosures = {
+    title: "Enclosed documents",
+    plain: "Links to the forms and summaries the claimant needs — the doctor's form, the return-to-work form, state summaries and a plain-English rights summary.",
+    why: "DOL's model forms (WH-380-E for the employee's own condition, WH-380-F for a family member) are commonly enclosed with a certification request so the claimant can hand them straight to the doctor. Which items appear depends on the reason for leave, certification status and state.",
+    source: `Derived from: reason (${dash(f.qualifyingReason)}), certification (${f.medCertRequired === "yes" ? dash(f.medCertStatus) : "not required"}), fitness-for-duty (${dash(f.fitForDutyRequired)}), state (${c.stateCode || "federal only"}).`,
+    faq: [["Where do I find the form?", "Open the link in the enclosed documents list. If you need a mailed copy or help reading it, call us."]],
+    flag: c.es ? "Official forms are linked in their English versions (labelled “en inglés”). Swap in Spanish versions once confirmed." : null,
+  };
+
+  A.closing = {
+    title: "Questions? How to reach us",
+    plain: "Invites the claimant to call, gives phone, email and the reference number, then the signature block.",
+    why: "Good practice rather than a specific legal line: easy contact reduces missed deadlines and shows the claimant was told who can answer questions.",
+    source: `Phone ${c.phone} · email ${f.adminEmail || f.hrEmail || "—"} · signed by ${f.adminName || f.hrContactName || "—"}${f.hrTitle ? `, ${f.hrTitle}` : ""} for ${f.employerName || "the employer"}.`,
+    faq: [["I lost my reference number.", "Give your name and employee ID — we can look up the claim."]],
+  };
+
+  A.footer = {
+    title: "Small print (for the file)",
+    plain: "Lists the laws the letter is issued under, the template version, letter ID, delivery method and the Department of Labor complaint line.",
+    why: "FMLA notice records should be kept for 3 years (29 CFR 825.500). The legal citations live here, in small type, so the body of the letter stays in plain language.",
+    source: `Template ${dash(f.templateVersion)} · letter ${dash(f.letterId)} · delivery: ${dash(f.deliveryMethod)} · state: ${c.stateCode || "federal only"}.`,
+    faq: [["What is the Department of Labor number for?", "If you ever believe your leave rights were not respected, you can contact the Wage and Hour Division at the number shown."]],
+  };
+
+  return A;
+}
+
+function LetterGuide({ f }) {
+  const [open, setOpen] = useState(true);
+  const scope = f.noticeScope || "combined";
+  const showEN = scope === "en" || scope === "combined";
+  const showDN = scope === "dn" || scope === "combined";
+  const stateCode = (f.stateOfEmployment || "").includes("ME") ? "ME" : (f.stateOfEmployment || "").includes("TN") ? "TN" : null;
+  const isSTD = f.letterType === "std", isPFML = f.letterType === "pfml";
+  const r = (f.qualifyingReason || "").toLowerCase();
+  const isBond = r.includes("birth") || r.includes("bonding") || r.includes("adoption");
+  const scopeName = scope === "en" ? "Eligibility notice only" : scope === "dn" ? "Designation notice only" : "Eligibility + designation (combined)";
+  const typeName = isSTD ? "FMLA + short-term disability" : isPFML ? "FMLA + state paid leave" : "Standalone FMLA";
+  const customCount = [f.customOpening, showDN && f.customMidNote, f.customClosing].filter(Boolean).length;
+  const stateName = stateCode === "ME" ? "Maine" : stateCode === "TN" ? "Tennessee" : null;
+
+  const fromClaim = [
+    ["Employee", f.employeeName], ["Employer", f.employerName],
+    ["Leave dates", f.leaveStart ? `${f.leaveStart} → ${f.leaveEnd || "open"}` : ""],
+    ["Leave type", f.leaveType], ["Reason", f.qualifyingReason],
+    ["Tenure / hours / staff", `${f.monthsEmployed || "—"} mo · ${f.hoursLast12Mo || "—"} hrs · ${f.worksiteHeadcount || "—"} staff`],
+    ["State", f.stateOfEmployment], ["Notice received", f.noticeReceived],
+    isSTD && ["Disability claim", f.stdClaimNumber], isPFML && ["Paid-leave claim", f.pfmlClaimNumber],
+    ["Administrator", f.adminName],
+  ].filter((x) => x && x[1]);
+
+  const fromSpecialist = [
+    ["Notice scope", scopeName],
+    showEN && ["Qualifies", f.fmlaEligible === "yes" ? "Yes" : "No"],
+    showDN && ["Approved", f.isDesignated === "yes" ? `Yes${f.weeksCountedFmla ? ` · ${f.weeksCountedFmla} wks` : ""}` : "No"],
+    showDN && ["Doctor paperwork", f.medCertRequired === "yes" ? (f.medCertStatus || "—") : "Not required"],
+    showDN && ["Paid time off rule", f.paidLeaveConcurrent === "yes" ? "Use at same time" : "Not required"],
+    showDN && ["Return note", f.fitForDutyRequired === "yes" ? "Required" : "Not required"],
+    showDN && ["Return date", f.anticipatedReturn || f.leaveEnd],
+    showDN && ["Insurance share", f.employeePremiumShare ? `$${f.employeePremiumShare}` : ""],
+    ["Custom notes", `${customCount} added`],
+  ].filter((x) => x && x[1]);
+
+  const sections = [
+    [true, "Title & reference number", "Every letter has one", ""],
+    [true, "From / To", "Every letter has one", ""],
+    [showEN, "Do you qualify?", "The notice scope includes the eligibility notice", "EN section is not part of a designation-only letter"],
+    [showDN, "Is your time off approved?", "The notice scope includes the designation notice", "Approval decision is not part of an eligibility-only letter"],
+    [showDN && f.medCertRequired === "yes", "Paperwork from your doctor", "Medical certification is required for this leave", showDN ? "Certification is marked not required" : "Designation details are not part of an eligibility-only letter"],
+    [showDN, "Paid time off", "Designation notices must say whether paid leave is used", "Not part of an eligibility-only letter"],
+    [showDN && isSTD, "Disability pay", "Letter type is FMLA + STD", "Letter type is not FMLA + STD"],
+    [showDN && isPFML, "Paid leave benefit", "Letter type is FMLA + paid leave", "Letter type is not FMLA + paid leave"],
+    [showDN, "Coming back to work", "Designation notices must say whether a return note is required", "Not part of an eligibility-only letter"],
+    [showDN, "Health insurance", "Required rights-and-responsibilities information", "Not part of an eligibility-only letter"],
+    [showDN, "Your rights", "Required rights-and-responsibilities information", "Not part of an eligibility-only letter"],
+    [showDN && (stateCode === "ME" || (stateCode === "TN" && isBond)), `${stateName || "State"} note`, "A state leave law applies to this claim", "No state note applies (federal only, or not a Tennessee birth/adoption leave)"],
+    [showDN, "What we need from you", "Required rights-and-responsibilities information", "Not part of an eligibility-only letter"],
+    [customCount > 0, "Specialist's custom notes", `${customCount} note(s) added, shown in italics`, "No custom notes were added"],
+    [true, "Enclosed documents", "Forms depend on reason, certification status and state", ""],
+    [true, "Questions & signature", "Every letter has one", ""],
+    [true, "Small print for the file", "Legal citations kept out of the main text", ""],
+  ];
+
+  const glossary = [
+    ["FMLA eligibility determination", "Do you qualify for job-protected leave?"],
+    ["Designation of leave as FMLA", "Is your time off approved?"],
+    ["FMLA entitlement", "time available this year"],
+    ["Medical certification", "paperwork from your doctor"],
+    ["Fitness-for-duty certification", "a note from your doctor saying you are ready to return"],
+    ["Substitution of accrued paid leave", "your saved-up sick days and vacation used at the same time"],
+    ["Elimination period", "waiting period before payments start"],
+    ["Reinstatement", "you can return to the same job or an equivalent one"],
+    ["Retaliation / interference", "you cannot be punished or treated differently"],
+    ["Continuation of group health coverage", "your health insurance stays active"],
+  ];
+
+  const chip = { display: "inline-block", fontSize: 11, padding: "2px 8px", borderRadius: 99, background: "#F3F4F6", color: "#374151", margin: "0 4px 4px 0", fontFamily: ff };
+  const h = { fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#6B7280", margin: "0 0 6px", fontFamily: ff };
+
+  return (
+    <div style={{ background: "white", border: "1px solid #BFDBFE", borderRadius: 10, marginBottom: 16, overflow: "hidden", fontFamily: ff }}>
+      <div onClick={() => setOpen((o) => !o)} style={{ background: "#EFF6FF", padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#1B3A6B" }}>How this letter was generated</div>
+          <div style={{ fontSize: 11, color: "#1E40AF" }}>
+            {scopeName} · {typeName}{stateName ? ` · ${stateName} overlay` : ""} · {f.letterLanguage === "es" ? "Spanish" : "English"} · template {f.templateVersion || "—"} · for specialist use only
+          </div>
+        </div>
+        <span style={{ color: "#1E40AF", fontSize: 12 }}>{open ? "▲" : "▼"}</span>
       </div>
+      {open && (
+        <div style={{ padding: "14px 16px" }}>
+          <div style={{ fontSize: 12, color: "#374151", marginBottom: 12, lineHeight: 1.5 }}>
+            Hover over — or click — the blue <strong style={{ color: "#3B82F6" }}>i</strong> markers beside the letter to see what each part says in plain terms, why it is there, where its data came from, and what to say if the claimant calls. None of this appears in the letter or the PDF.
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16 }}>
+            <div>
+              <div style={h}>Pulled from the claim system</div>
+              <div>{fromClaim.map(([k, v]) => <span key={k} style={chip}><strong>{k}:</strong> {v}</span>)}</div>
+              <div style={{ ...h, marginTop: 10 }}>Entered or confirmed by the specialist</div>
+              <div>{fromSpecialist.map(([k, v]) => <span key={k} style={{ ...chip, background: "#EFF6FF", color: "#1E40AF" }}><strong>{k}:</strong> {v}</span>)}</div>
+            </div>
+            <div>
+              <div style={h}>What is in this letter — and why</div>
+              {sections.map(([on, label, whyIn, whyOut], i) => (on || whyOut) ? (
+                <div key={i} style={{ fontSize: 12, lineHeight: 1.45, marginBottom: 3, color: on ? "#1F2937" : "#9CA3AF" }}>
+                  <span style={{ color: on ? "#16A34A" : "#9CA3AF", fontWeight: 700 }}>{on ? "✓" : "—"}</span> <strong>{label}</strong> <span style={{ color: on ? "#6B7280" : "#9CA3AF" }}>· {on ? whyIn : whyOut}</span>
+                </div>
+              ) : null)}
+            </div>
+          </div>
+          <div style={{ ...h, marginTop: 14 }}>Plain-language glossary — what we say instead</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "2px 20px" }}>
+            {glossary.map(([t, p]) => (
+              <div key={t} style={{ fontSize: 12, lineHeight: 1.5, color: "#1F2937" }}>
+                <span style={{ color: "#9CA3AF", textDecoration: "line-through" }}>{t}</span> → <strong>{p}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2806,6 +3268,7 @@ export default function App() {
   const [activeClaim, setActiveClaim] = useState(null);
   const [form, setForm]       = useState(defaultForm);
   const [view, setView]       = useState("form");         // form | letter (within form/letter mode)
+  const [explain, setExplain] = useState(true);   // specialist "explain this letter" mode
 
   const scopeBgColor = { en: "#0D6B3B", dn: "#7C2D12", combined: NAV };
   const scopeLabel   = { en: "EN Only",  dn: "DN Only",  combined: "EN + DN" };
@@ -2929,6 +3392,11 @@ export default function App() {
                     );
                   })}
                 </span>
+                <button type="button" onClick={() => setExplain(e => !e)}
+                  style={{ marginLeft: 8, padding: "4px 12px", borderRadius: 99, fontSize: 11, fontWeight: 700, fontFamily: ff, cursor: "pointer",
+                    border: `1px solid ${explain ? "#3B82F6" : "#D1D5DB"}`, background: explain ? "#EFF6FF" : "white", color: explain ? "#1D4ED8" : G600 }}>
+                  ⓘ Explain this letter: {explain ? "On" : "Off"}
+                </button>
               </div>
               <button
                 onClick={() => {
@@ -2952,10 +3420,13 @@ export default function App() {
                 ⬇ Download PDF
               </button>
             </div>
-            <div style={{ background: "white", borderRadius: 10, padding: "36px 40px", boxShadow: "0 4px 24px rgba(0,0,0,0.12)" }}>
-              <div id="letter-print-area">
-                <GeneratedLetter f={form} />
-              </div>
+            {explain && <LetterGuide f={form} />}
+            <div style={{ background: "white", borderRadius: 10, padding: explain ? "36px 40px 36px 60px" : "36px 40px", boxShadow: "0 4px 24px rgba(0,0,0,0.12)" }}>
+              <GeneratedLetter f={form} annotate={explain} />
+            </div>
+            {/* Clean, annotation-free copy — this is what the PDF is built from */}
+            <div id="letter-print-area" style={{ display: "none" }}>
+              <GeneratedLetter f={form} />
             </div>
             <div style={{ marginTop: 20 }}>
               <ComplianceReport f={form} />
